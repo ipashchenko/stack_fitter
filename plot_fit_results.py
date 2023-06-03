@@ -26,7 +26,7 @@ save_dir = "/home/ilya/github/stack_fitter"
 run_dir = "/home/ilya/github/stack_fitter/Release"
 fitted_file = "/home/ilya/github/stack_fitter/Release/posterior_sample.txt"
 
-logZ, _, _ = postprocess(plot=False,
+logZ, _, _ = postprocess(plot=True,
                          sample_file=os.path.join(run_dir, 'sample.txt'),
                          level_file=os.path.join(run_dir, 'levels.txt'),
                          sample_info_file=os.path.join(run_dir, 'sample_info.txt'),
