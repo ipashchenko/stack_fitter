@@ -1,25 +1,32 @@
 #ifndef STACK_FITTER_SRC_DATA_H
 #define STACK_FITTER_SRC_DATA_H
 
-#include "armadillo"
 #include "string"
+#include <iostream>
+#include "fstream"
+#include "vector"
+#include <Eigen/Dense>
+
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
+
 
 class Data {
 
     private:
-        arma::vec r;
-		arma::vec R;
+		VectorXd r;
+		VectorXd R;
 
     public:
         Data();
         void load(std::string filename);
 
         // Getters
-		arma::vec get_r() const
+		VectorXd  get_r() const
 		{
 			return r;
 		}
-		arma::vec get_R() const
+		VectorXd  get_R() const
 		{
 			return R;
 		}

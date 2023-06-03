@@ -2,7 +2,8 @@
 #define UTILS_H
 
 #include <cmath>
-#include "armadillo"
+#include <exception>
+//#include "armadillo"
 
 
 class FailedDeterminantCalculationException : public std::exception {
@@ -11,6 +12,6 @@ class FailedDeterminantCalculationException : public std::exception {
 		}
 };
 
-double studentT_lpdf(arma::vec x, arma::vec mu, arma::vec sigma, double df);
+//double studentT_lpdf(arma::vec x, arma::vec mu, arma::vec sigma, double df);
 
 #endif //UTILS_H

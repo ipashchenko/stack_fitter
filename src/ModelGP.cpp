@@ -4,18 +4,19 @@
 #include "kernels.h"
 
 using namespace DNest4;
+using std::pow;
 
 
 ModelGP::ModelGP()
 : a(0.0), b(0.0), r0(0.0), frac_log_error_scale(0.0), abs_log_error_scale(0.0), gp_amp(0.0), gp_scale(1.0)
 {
-	arma::vec r = Data::get_instance().get_r();
-	mu = arma::zeros(r.size());
+	VectorXd r = Data::get_instance().get_r();
+	mu = VectorXd::Zero(r.size());
 }
 
 void ModelGP::from_prior(DNest4::RNG &rng)
 {
-	arma::vec r = Data::get_instance().get_r();
+	VectorXd r = Data::get_instance().get_r();
 
 	DNest4::Gaussian gaussian(-2., 1.0);
 	b = -2.0 + 1.0*rng.randn();
@@ -143,34 +144,27 @@ double ModelGP::perturb(DNest4::RNG &rng)
 
 void ModelGP::calculate_prediction()
 {
-	arma::vec r = Data::get_instance().get_r();
-	mu = exp(b)*pow(r + exp(r0), a);
+	VectorXd r = Data::get_instance().get_r();
+	mu = exp(b)*pow(r.array() + exp(r0), a);
 }
 
 double ModelGP::log_likelihood() const
 {
 	double loglik = 0.0;
-	arma::vec r = Data::get_instance().get_r();
-	arma::vec R = Data::get_instance().get_R();
-	arma::uword n = r.size();
-	arma::vec diff = R - mu;
-	arma::vec disp = mu%mu*exp(2*frac_log_error_scale) + exp(2*abs_log_error_scale);
+	VectorXd r = Data::get_instance().get_r();
+	VectorXd R = Data::get_instance().get_R();
+	auto n = r.size();
+	VectorXd diff = R - mu;
+	VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
 	
-	arma::mat C = squared_exponential_kernel(r, gp_amp, gp_scale) + arma::diagmat(disp);
-//	std::cout << "Calculating inverse...\n";
-	arma::mat Cinv = arma::inv_sympd(C);
-	double sign;
-	double logdet;
-//	std::cout << "Calculating det...\n";
-	bool ok = arma::log_det(logdet, sign, C);
-	if(!ok)
-	{
-		throw FailedDeterminantCalculationException();
-	}
-//	std::cout << "Done!\n";
-
+	MatrixXd C = squared_exponential_kernel(r, gp_amp, gp_scale);
+	C += disp.asDiagonal();
+	
+//	https://stackoverflow.com/a/39735211
+	Eigen::LLT<Eigen::MatrixXd> llt = C.llt();
+	double sqrt_det = llt.matrixL().determinant();
 	// likelihood of Radius
-	loglik += arma::sum(-0.5*n*log(2*M_PI) - 0.5*logdet - 0.5*(diff.t()*Cinv*diff));
+	loglik = -0.5*n*log(2*M_PI) - log(sqrt_det) - 0.5*(llt.matrixL().solve(diff)).squaredNorm();
 
 	return loglik;
 }

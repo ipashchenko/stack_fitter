@@ -4,8 +4,10 @@
 #include <ostream>
 #include "RNG.h"
 #include "DNest4.h"
-#include "armadillo"
+#include <Eigen/Dense>
 
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
 
 class ModelGP
 {
@@ -17,7 +19,7 @@ class ModelGP
 		double abs_log_error_scale;
 		double gp_amp;
 		double gp_scale;
-		arma::vec mu;
+		VectorXd mu;
 
         // Calculate prediction of spectra
         void calculate_prediction();

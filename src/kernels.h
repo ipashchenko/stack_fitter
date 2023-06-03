@@ -1,15 +1,15 @@
 #ifndef KERNELS_H
 #define KERNELS_H
 
-#include "armadillo"
+#include <Eigen/Core>
+#include <Eigen/Eigen>
+
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
 
 
-arma::vec gp_values_arma(arma::vec v, arma::vec times, double amp, double scale);
+VectorXd gp_values_eigen(VectorXd v, VectorXd x, double amp, double scale);
 
-arma::mat squared_exponential_kernel(arma::vec x, double amp, double scale, double jitter = 1e-5);
-
-arma::mat rational_quadratic_kernel(arma::vec x, double amp, double scale, double alpha, double jitter = 1e-5);
-
-arma::mat periodic_kernel(arma::vec x, double amp, double scale, double period);
+MatrixXd squared_exponential_kernel(VectorXd x, double amp, double scale);
 
 #endif //KERNELS_H
