@@ -5,7 +5,7 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import scoreatpercentile
-sys.path.insert(0, '/home/ilya/github/dnest4post')
+sys.path.insert(0, '/home/ilya/github/dnest4postprocessing')
 from postprocess import postprocess
 
 label_size = 14
