@@ -17,7 +17,7 @@ class ModelGP
         double r0;
 		double frac_log_error_scale;
 		double abs_log_error_scale;
-		double gp_amp;
+		double gp_logamp;
 		double gp_scale;
 		VectorXd mu;
 

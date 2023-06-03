@@ -8,7 +8,7 @@ using std::pow;
 
 
 ModelGP::ModelGP()
-: a(0.0), b(0.0), r0(0.0), frac_log_error_scale(0.0), abs_log_error_scale(0.0), gp_amp(0.0), gp_scale(1.0)
+: a(0.0), b(0.0), r0(0.0), frac_log_error_scale(0.0), abs_log_error_scale(0.0), gp_logamp(0.0), gp_scale(1.0)
 {
 	VectorXd r = Data::get_instance().get_r();
 	mu = VectorXd::Zero(r.size());
@@ -24,7 +24,7 @@ void ModelGP::from_prior(DNest4::RNG &rng)
 	r0 = -2.0 + 1.0*rng.randn();
 	frac_log_error_scale = -4.0 + 1.0 * rng.randn();
 	abs_log_error_scale = -10.0 + 1.0 * rng.randn();
-	gp_amp = gaussian.generate(rng);
+	gp_logamp = gaussian.generate(rng);
 }
 
 double ModelGP::perturb(DNest4::RNG &rng)
@@ -127,7 +127,7 @@ double ModelGP::perturb(DNest4::RNG &rng)
 	else
 	{
 		DNest4::Gaussian gaussian(-2., 1.0);
-		logH += gaussian.perturb(gp_amp, rng);
+		logH += gaussian.perturb(gp_logamp, rng);
 		// Pre-reject
 		if(rng.rand() >= exp(logH))
 		{
@@ -157,7 +157,7 @@ double ModelGP::log_likelihood() const
 	VectorXd diff = R - mu;
 	VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
 	
-	MatrixXd C = squared_exponential_kernel(r, gp_amp, gp_scale);
+	MatrixXd C = squared_exponential_kernel(r, exp(gp_logamp), gp_scale);
 	C += disp.asDiagonal();
 	
 //	https://stackoverflow.com/a/39735211
@@ -176,7 +176,7 @@ void ModelGP::print(std::ostream &out) const
 	out << r0 << "\t";
 	out << abs_log_error_scale << "\t";
 	out << frac_log_error_scale << "\t";
-	out << gp_amp;
+	out << gp_logamp;
 }
 
 std::string ModelGP::description() const
@@ -187,7 +187,7 @@ std::string ModelGP::description() const
 	descr += "r0 ";
 	descr += "abs_log_error_scale ";
 	descr += "frac_log_error_scale ";
-	descr += "gp_amp";
+	descr += "gp_logamp";
 	
 	return descr;
 }
