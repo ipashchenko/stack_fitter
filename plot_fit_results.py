@@ -7,6 +7,7 @@ import numpy as np
 from scipy.stats import scoreatpercentile
 sys.path.insert(0, '/home/ilya/github/dnest4postprocessing')
 from postprocess import postprocess
+from gp_utils import make_GP_SE_predictions
 
 label_size = 14
 matplotlib.rcParams['xtick.labelsize'] = label_size
@@ -21,6 +22,8 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 changepoint = False
 GP = True
+gp_scale = 1.0
+n_pred = 50
 data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
 save_dir = "/home/ilya/github/stack_fitter"
 run_dir = "/home/ilya/github/stack_fitter/Release"
@@ -35,7 +38,9 @@ logZ, _, _ = postprocess(plot=True,
 post_samples = np.loadtxt(fitted_file)
 
 r, R = np.loadtxt(data_file, unpack=True)
-r_grid = np.linspace(np.min(r), np.max(r), 1000)
+r_grid = np.linspace(np.min(r), np.max(r), 100)
+r = r[::5]
+R = R[::5]
 fig, axes = plt.subplots(1, 1)
 axes.set_xlabel("Separation (mas)")
 axes.set_ylabel(r"Width (mas)")
@@ -45,7 +50,7 @@ if not changepoint:
     if not GP:
         a_samples, b_samples, r0_samples, abs_error_samples, frac_error_samples = np.split(post_samples, 5, 1)
     else:
-        a_samples, b_samples, r0_samples, abs_error_samples, frac_error_samples, gp_amp_samples = np.split(post_samples, 6, 1)
+        a_samples, b_samples, r0_samples, abs_error_samples, frac_error_samples, gp_logamp_samples = np.split(post_samples, 6, 1)
 
     low, med, up = scoreatpercentile(a_samples, [16, 50, 84])
     low_r0, med_r0, up_r0 = scoreatpercentile(np.exp(r0_samples), [16, 50, 84])
@@ -53,11 +58,22 @@ if not changepoint:
               transform=axes.transAxes, ha="left")
     axes.text(0.03, 0.85, r"$r_0$ (mas) = {:.2f} ({:.2f}, {:.2f})".format(med_r0, low_r0, up_r0), fontdict={"fontsize": 10},
               transform=axes.transAxes, ha="left")
-    for i in np.random.randint(low=0, high=len(a_samples), size=200):
+    for i in np.random.randint(low=0, high=len(a_samples), size=n_pred):
         a = a_samples[i]
         b = b_samples[i]
         r0 = np.exp(r0_samples[i])
-        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="red", alpha=0.025, zorder=3)
+        if GP:
+            mu_model = np.exp(b)*(r + r0)**a
+            frac_error = np.exp(frac_error_samples[i])
+            abs_error = np.exp(abs_error_samples[i])
+            amp_gp = np.exp(gp_logamp_samples[i])
+            sigma = np.hypot(mu_model*frac_error, abs_error)
+            # FIXME: Here sigma must be a scalar!
+            mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, sigma)
+            R_pred = np.random.multivariate_normal(mu_pred, cov_pred)
+            axes.plot(r_grid, R_pred, color="C1", alpha=0.1, zorder=4)
+        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a + R_pred, color="red", alpha=0.1, zorder=3)
+        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="green", alpha=0.1, zorder=3)
 
 else:
     if not GP:
@@ -65,7 +81,7 @@ else:
             log_changepoint_samples, abs_error_samples, frac_error_samples = np.split(post_samples, 9, 1)
     else:
         a_before_samples, a_after_samples, b_before_samples, b_after_samples, r0_samples, r1_samples, \
-            log_changepoint_samples, abs_error_samples, frac_error_samples, gp_amp_samples = np.split(post_samples, 10, 1)
+            log_changepoint_samples, abs_error_samples, frac_error_samples, gp_logamp_samples = np.split(post_samples, 10, 1)
     low_a_before, med_a_before, up_a_before = scoreatpercentile(a_before_samples, [16, 50, 84])
     low_a_after, med_a_after, up_a_after = scoreatpercentile(a_after_samples, [16, 50, 84])
     low_cp, med_cp, up_cp = scoreatpercentile(np.exp(log_changepoint_samples), [16, 50, 84])
@@ -80,7 +96,7 @@ else:
     axes.text(0.03, 0.75, r"$r_0$ (mas) = {:.2f} ({:.2f}, {:.2f})".format(med_r0, low_r0, up_r0),
                fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
 
-    for i in np.random.randint(low=0, high=len(a_before_samples), size=100):
+    for i in np.random.randint(low=0, high=len(a_before_samples), size=n_pred):
         log_changepoint = log_changepoint_samples[i]
         r0 = np.exp(r0_samples[i])
         r1 = r1_samples[i]
