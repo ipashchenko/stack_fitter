@@ -3,7 +3,9 @@
 
 #include <cmath>
 #include <exception>
-//#include "armadillo"
+#include <Eigen/Dense>
+
+using Eigen::VectorXd;
 
 
 class FailedDeterminantCalculationException : public std::exception {
@@ -12,6 +14,11 @@ class FailedDeterminantCalculationException : public std::exception {
 		}
 };
 
-//double studentT_lpdf(arma::vec x, arma::vec mu, arma::vec sigma, double df);
+double studentT_lpdf(double x, double df, double mu, double sigma);
+
+double studentT_lpdf(VectorXd x, VectorXd mu, VectorXd disp, double df);
+
+double normal_lpdf(VectorXd x, VectorXd mu, VectorXd disp);
+
 
 #endif //UTILS_H
