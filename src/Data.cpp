@@ -27,5 +27,7 @@ void Data::load(std::string filename)
 	
 	r = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(r_.data(), r_.size());
 	R = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(R_.data(), R_.size());
+	r = r(Eigen::seq(0, Eigen::last, 5));
+	R = R(Eigen::seq(0, Eigen::last, 5));
 }
 
