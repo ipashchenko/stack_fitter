@@ -43,11 +43,11 @@ int main(int argc, char** argv)
 //		VectorXd R = Data::get_instance().get_R();
 //		std::cout << "r = " << r << "\n";
 //		std::cout << "R = " << R << "\n";
-//		VectorXd mu = R + 0.1*VectorXd::Random(r.size());
-//		std::cout << "mu = " << mu << "\n";
-//		VectorXd diff = R - mu;
+//		VectorXd mu_model = R + 0.1*VectorXd::Random(r.size());
+//		std::cout << "mu_model = " << mu_model << "\n";
+//		VectorXd diff = R - mu_model;
 //		std::cout << "diff = " << diff << "\n";
-//		VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
+//		VectorXd disp = (mu_model.cwiseProduct(mu_model)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
 //		std::cout << "disp = " << disp << "\n";
 //		MatrixXd C = squared_exponential_kernel(r, gp_amp, gp_scale);
 //		C += disp.asDiagonal();
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 //		// likelihood of Radius
 //		loglik_eigen = -0.5*n*log(2*M_PI) - log(sqrt_det) - 0.5*(llt.matrixL().solve(diff)).squaredNorm();
 //
-//		double factor = 0.5*(llt.matrixL().solve(r - mu)).squaredNorm();
+//		double factor = 0.5*(llt.matrixL().solve(r - mu_model)).squaredNorm();
 //		std::cout << "factor = " << factor << '\n';
 //
 //		std::cout << "arma loglik = " << loglik_arma << "\n";
