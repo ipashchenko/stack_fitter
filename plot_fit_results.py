@@ -20,7 +20,7 @@ matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
 
-changepoint = False
+changepoint = True
 GP = True
 gp_scale = 1.0
 n_pred = 50
@@ -100,18 +100,45 @@ else:
         log_changepoint = log_changepoint_samples[i]
         r0 = np.exp(r0_samples[i])
         r1 = r1_samples[i]
-        after = r_grid >= np.exp(log_changepoint)
-        before = r_grid < np.exp(log_changepoint)
-        axes.plot(r_grid[after], np.exp(b_after_samples[i])*(r_grid[after] + r1)**a_after_samples[i], color="red", alpha=0.025, zorder=3)
-        axes.plot(r_grid[before], np.exp(b_before_samples[i])*(r_grid[before] + r0)**a_before_samples[i], color="red", alpha=0.025, zorder=4)
+        after_grid = r_grid >= np.exp(log_changepoint)
+        before_grid = r_grid < np.exp(log_changepoint)
+        after = r >= np.exp(log_changepoint)
+        before = r < np.exp(log_changepoint)
+        mu_model_after = np.exp(b_after_samples[i])*(r[after] + r1)**a_after_samples[i]
+        mu_model_before = np.exp(b_before_samples[i])*(r[before] + r0)**a_before_samples[i]
+        mu_model = np.hstack((mu_model_before, mu_model_after))
+
+        if GP:
+
+            frac_error = np.exp(frac_error_samples[i])
+            abs_error = np.exp(abs_error_samples[i])
+            amp_gp = np.exp(gp_logamp_samples[i])
+            sigma = np.hypot(mu_model*frac_error, abs_error)
+            # FIXME: Here sigma must be a scalar!
+            mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, sigma)
+            R_pred = np.random.multivariate_normal(mu_pred, cov_pred)
+            axes.plot(r_grid, R_pred, color="C1", alpha=0.1, zorder=4)
+
+        axes.plot(r_grid[after_grid], np.exp(b_after_samples[i])*(r_grid[after_grid] + r1)**a_after_samples[i], color="green", alpha=0.1, zorder=3)
+        axes.plot(r_grid[before_grid], np.exp(b_before_samples[i])*(r_grid[before_grid] + r0)**a_before_samples[i], color="green", alpha=0.1, zorder=3)
+        axes.plot(r_grid[after_grid], np.exp(b_after_samples[i])*(r_grid[after_grid] + r1)**a_after_samples[i] + R_pred[after_grid], color="red", alpha=0.1, zorder=3)
+        axes.plot(r_grid[before_grid], np.exp(b_before_samples[i])*(r_grid[before_grid] + r0)**a_before_samples[i] + R_pred[before_grid], color="red", alpha=0.1, zorder=3)
+
 
 if logZ is not None:
     axes.text(0.03, 0.95, "logZ = {:.2f}".format(logZ), fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
 
 if changepoint:
-    fig_name = "fitted_2.png"
+    if GP:
+        fig_name = "fitted_gp_2.png"
+    else:
+        fig_name = "fitted_2.png"
 else:
-    fig_name = "fitted_1.png"
+    if GP:
+        fig_name = "fitted_gp_1.png"
+    else:
+        fig_name = "fitted_1.png"
+
 
 fig.savefig(fig_name, bbox_inches="tight", dpi=300)
 plt.show()
