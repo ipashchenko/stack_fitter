@@ -3,6 +3,7 @@
 //#include "Model.h"
 //#include "ModelCP.h"
 #include "ModelGP.h"
+#include "ModelGPCP.h"
 #include "utils.h"
 #include "kernels.h"
 #include "omp.h"
@@ -21,7 +22,8 @@ int main(int argc, char** argv)
 	Data::get_instance().load("/home/ilya/github/stack_fitter/m87_r_fwhm.txt");
 //	Sampler<Model> sampler = setup<Model>(argc, argv);
 //	Sampler<ModelCP> sampler = setup<ModelCP>(argc, argv);
-	Sampler<ModelGP> sampler = setup<ModelGP>(argc, argv);
+//	Sampler<ModelGP> sampler = setup<ModelGP>(argc, argv);
+	Sampler<ModelGPCP> sampler = setup<ModelGPCP>(argc, argv);
 	sampler.run();
 
 	return 0;
