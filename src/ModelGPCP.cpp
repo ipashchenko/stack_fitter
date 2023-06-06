@@ -32,8 +32,8 @@ void ModelGPCP::from_prior(DNest4::RNG &rng)
 	
 	DNest4::Gaussian gaussian(-2., 1.0);
 	b_before = -2.0 + 1.0*rng.randn();
-	a_before = 1.0 + 0.25*rng.randn();
-	a_after = 1.0 + 0.25*rng.randn();
+	a_before = 1.0 + 0.5*rng.randn();
+	a_after = 1.0 + 0.5*rng.randn();
 	r0 = -2.0 + 1.0*rng.randn();
 	// logU(xmin, xmax) => U(log(xmin), log(xmax))
 //    changepoint = log(xmin) + (log(xmax) - log(xmin))*rng.rand();
@@ -73,9 +73,9 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 	// Perturb a_before
 	else if(r > 0.1 && r <= 0.2)
 	{
-		logH -= -0.5*pow((a_before - 1.0)/0.25, 2.0);
-		a_before += 0.25*rng.randh();
-		logH += -0.5*pow((a_before - 1.0)/0.25, 2.0);
+		logH -= -0.5*pow((a_before - 1.0)/0.5, 2.0);
+		a_before += 0.5*rng.randh();
+		logH += -0.5*pow((a_before - 1.0)/0.5, 2.0);
 		
 		// Pre-reject
 		if(rng.rand() >= exp(logH))
@@ -92,9 +92,9 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 	
 	// Perturb a_after
 	else if(r > 0.2 && r <= 0.3) {
-		logH -= -0.5*pow((a_after - 1.0)/0.25, 2.0);
-		a_after += 0.25*rng.randh();
-		logH += -0.5*pow((a_after - 1.0)/0.25, 2.0);
+		logH -= -0.5*pow((a_after - 1.0)/0.5, 2.0);
+		a_after += 0.5*rng.randh();
+		logH += -0.5*pow((a_after - 1.0)/0.5, 2.0);
 		
 		// Pre-reject
 		if(rng.rand() >= exp(logH)) {
@@ -257,6 +257,8 @@ double ModelGPCP::log_likelihood() const
 	VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
 	
 	MatrixXd C = squared_exponential_kernel(r, exp(gp_logamp), gp_scale);
+//	MatrixXd C_ = linear_kernel(r, 1e-05, 1.0, -exp(r0));
+//	MatrixXd CC = C.array()*C_.array();
 	C += disp.asDiagonal();
 	
 //	https://stackoverflow.com/a/39735211

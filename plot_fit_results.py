@@ -7,9 +7,9 @@ import numpy as np
 from scipy.stats import scoreatpercentile
 sys.path.insert(0, '/home/ilya/github/dnest4postprocessing')
 from postprocess import postprocess
-from gp_utils import make_GP_SE_predictions
+from gp_utils import make_GP_SE_predictions, make_GP_SElin_predictions
 
-label_size = 14
+label_size = 16
 matplotlib.rcParams['xtick.labelsize'] = label_size
 matplotlib.rcParams['ytick.labelsize'] = label_size
 matplotlib.rcParams['axes.titlesize'] = label_size
@@ -23,7 +23,10 @@ matplotlib.rcParams['ps.fonttype'] = 42
 changepoint = True
 GP = True
 gp_scale = 1.0
-n_pred = 50
+n_pred = 400
+n_each = 10
+alpha = 0.05
+small_font = 12
 data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
 save_dir = "/home/ilya/github/stack_fitter"
 run_dir = "/home/ilya/github/stack_fitter/Release"
@@ -36,15 +39,22 @@ logZ, _, _ = postprocess(plot=True,
                          post_sample_file=os.path.join(run_dir, "posterior_sample.txt"))
 
 post_samples = np.loadtxt(fitted_file)
+n_post = len(post_samples)
 
 r, R = np.loadtxt(data_file, unpack=True)
 r_grid = np.linspace(np.min(r), np.max(r), 100)
-r = r[::5]
-R = R[::5]
-fig, axes = plt.subplots(1, 1)
+r = r[::n_each]
+R = R[::n_each]
+# fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
+fig, axes = plt.subplots(1, 1, figsize=(9.6, 7.2))
 axes.set_xlabel("Separation (mas)")
 axes.set_ylabel(r"Width (mas)")
-axes.scatter(r, R)
+axes.scatter(r, R, zorder=5, color="black")
+axes.set_ylim([-2, 5])
+
+if n_pred > n_post:
+    n_pred = n_post
+draw_idx = np.random.choice(np.arange(n_post, dtype=int), n_pred, replace=False)
 
 if not changepoint:
     if not GP:
@@ -54,11 +64,13 @@ if not changepoint:
 
     low, med, up = scoreatpercentile(a_samples, [16, 50, 84])
     low_r0, med_r0, up_r0 = scoreatpercentile(np.exp(r0_samples), [16, 50, 84])
-    axes.text(0.03, 0.90, "d = {:.2f} ({:.2f}, {:.2f})".format(med, low, up), fontdict={"fontsize": 10},
+    axes.text(0.03, 0.90, "d = {:.2f} ({:.2f}, {:.2f})".format(med, low, up), fontdict={"fontsize": small_font},
               transform=axes.transAxes, ha="left")
-    axes.text(0.03, 0.85, r"$r_0$ (mas) = {:.2f} ({:.2f}, {:.2f})".format(med_r0, low_r0, up_r0), fontdict={"fontsize": 10},
-              transform=axes.transAxes, ha="left")
-    for i in np.random.randint(low=0, high=len(a_samples), size=n_pred):
+    # axes.text(0.03, 0.85, r"$r_0$ (mas) = {:.2f} ({:.2f}, {:.2f})".format(med_r0, low_r0, up_r0), fontdict={"fontsize": small_font},
+    #           transform=axes.transAxes, ha="left")
+    axes.axhline(0., lw=2, color="black")
+
+    for i in draw_idx:
         a = a_samples[i]
         b = b_samples[i]
         r0 = np.exp(r0_samples[i])
@@ -69,11 +81,12 @@ if not changepoint:
             amp_gp = np.exp(gp_logamp_samples[i])
             sigma = np.hypot(mu_model*frac_error, abs_error)
             # FIXME: Here sigma must be a scalar!
-            mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, sigma)
+            # mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, sigma)
+            mu_pred, cov_pred = make_GP_SElin_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, 1e-05, 1, -r0, sigma)
             R_pred = np.random.multivariate_normal(mu_pred, cov_pred)
-            axes.plot(r_grid, R_pred, color="C1", alpha=0.1, zorder=4)
-        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a + R_pred, color="red", alpha=0.1, zorder=3)
-        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="green", alpha=0.1, zorder=3)
+            axes.plot(r_grid, R_pred, color="C2", alpha=alpha, zorder=4)
+        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a + R_pred, color="C1", alpha=alpha, zorder=3)
+        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="C0", alpha=alpha, zorder=3)
 
 else:
     if not GP:
@@ -88,15 +101,15 @@ else:
     low_r0, med_r0, up_r0 = scoreatpercentile(np.exp(r0_samples), [16, 50, 84])
 
     axes.text(0.03, 0.90, r"$d_1$ = {:.2f} ({:.2f}, {:.2f})".format(med_a_before, low_a_before, up_a_before),
-               fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
+               fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
     axes.text(0.03, 0.85, r"$d_2$ = {:.2f} ({:.2f}, {:.2f})".format(med_a_after, low_a_after, up_a_after),
-               fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
+               fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
     axes.text(0.03, 0.80, r"$r_{{\rm break}}$ = {:.2f} ({:.2f}, {:.2f})".format(med_cp, low_cp, up_cp),
-               fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
-    axes.text(0.03, 0.75, r"$r_0$ (mas) = {:.2f} ({:.2f}, {:.2f})".format(med_r0, low_r0, up_r0),
-               fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
+               fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
+    # axes.text(0.03, 0.75, r"$r_0$ (mas) = {:.2f} ({:.2f}, {:.2f})".format(med_r0, low_r0, up_r0),
+    #            fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
 
-    for i in np.random.randint(low=0, high=len(a_before_samples), size=n_pred):
+    for i in draw_idx:
         log_changepoint = log_changepoint_samples[i]
         r0 = np.exp(r0_samples[i])
         r1 = r1_samples[i]
@@ -117,16 +130,23 @@ else:
             # FIXME: Here sigma must be a scalar!
             mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, sigma)
             R_pred = np.random.multivariate_normal(mu_pred, cov_pred)
-            axes.plot(r_grid, R_pred, color="C1", alpha=0.1, zorder=4)
+            axes.plot(r_grid, R_pred, color="C2", alpha=alpha, zorder=4)
+            axes.plot(r_grid[after_grid], np.exp(b_after_samples[i])*(r_grid[after_grid] + r1)**a_after_samples[i] +
+                      R_pred[after_grid], color="C1", alpha=alpha, zorder=3)
+            axes.plot(r_grid[before_grid], np.exp(b_before_samples[i])*(r_grid[before_grid] + r0)**a_before_samples[i] +
+                      R_pred[before_grid], color="C1", alpha=alpha, zorder=3)
 
-        axes.plot(r_grid[after_grid], np.exp(b_after_samples[i])*(r_grid[after_grid] + r1)**a_after_samples[i], color="green", alpha=0.1, zorder=3)
-        axes.plot(r_grid[before_grid], np.exp(b_before_samples[i])*(r_grid[before_grid] + r0)**a_before_samples[i], color="green", alpha=0.1, zorder=3)
-        axes.plot(r_grid[after_grid], np.exp(b_after_samples[i])*(r_grid[after_grid] + r1)**a_after_samples[i] + R_pred[after_grid], color="red", alpha=0.1, zorder=3)
-        axes.plot(r_grid[before_grid], np.exp(b_before_samples[i])*(r_grid[before_grid] + r0)**a_before_samples[i] + R_pred[before_grid], color="red", alpha=0.1, zorder=3)
+
+        axes.plot(r_grid[after_grid], np.exp(b_after_samples[i])*(r_grid[after_grid] + r1)**a_after_samples[i],
+                  color="C0", alpha=alpha, zorder=3)
+        axes.plot(r_grid[before_grid], np.exp(b_before_samples[i])*(r_grid[before_grid] + r0)**a_before_samples[i],
+                  color="C0", alpha=alpha, zorder=3)
+    axes.axhline(0., lw=2, color="black")
+
 
 
 if logZ is not None:
-    axes.text(0.03, 0.95, "logZ = {:.2f}".format(logZ), fontdict={"fontsize": 10}, transform=axes.transAxes, ha="left")
+    axes.text(0.03, 0.95, "logZ = {:.2f}".format(logZ), fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
 
 if changepoint:
     if GP:

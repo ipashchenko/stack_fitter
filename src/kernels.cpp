@@ -13,13 +13,16 @@ Eigen::VectorXd gp_values_eigen(Eigen::VectorXd v, Eigen::VectorXd x, double amp
 	return L*v;
 }
 
-MatrixXd squared_exponential_kernel(VectorXd x, double amp, double scale)
+MatrixXd squared_exponential_kernel(VectorXd x, double amp, double scale, double jitter)
 {
 	MatrixXd sqdist = - 2*x*x.transpose();
 	sqdist.rowwise() += x.array().square().transpose().matrix();
 	sqdist.colwise() += x.array().square().matrix();
 	sqdist *= (-0.5/(scale*scale));
 	MatrixXd C = amp * amp * sqdist.array().exp();
+	MatrixXd I = MatrixXd::Identity(x.size(), x.size());
+	I *= jitter;
+	C += I;
 	return C;
 }
 
@@ -28,7 +31,9 @@ MatrixXd non_stationary_squared_exponential_kernel(VectorXd x, double amp, doubl
 	return MatrixXd();
 }
 
-MatrixXd linear_kernel(VectorXd x, double amp_b, double amp_v, double c)
+// c = -r0
+// amp_v - slope
+MatrixXd linear_kernel(VectorXd x, double amp_b, double amp_v, double c, double jitter)
 {
 	VectorXd x_c = x.array() - c;
 	MatrixXd sqdist = - 2*x_c*x_c.transpose();
@@ -36,6 +41,9 @@ MatrixXd linear_kernel(VectorXd x, double amp_b, double amp_v, double c)
 	sqdist.colwise() += x_c.array().square().matrix();
 	sqdist *= amp_v*amp_v;
 	MatrixXd C = amp_b*amp_b + sqdist.array();
+	MatrixXd I = MatrixXd::Identity(x.size(), x.size());
+	I *= jitter;
+	C += I;
 	return C;
 }
 
