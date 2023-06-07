@@ -18,6 +18,8 @@ z1_proj_mas_samples = z1_proj_mas_samples + r0_proj_mas_samples
 z1_obs = np.median(z1_proj_mas_samples)
 mad = median_abs_deviation(z1_proj_mas_samples)
 print(z1_obs)
+r1_obs_mas = 2.5
+r1_obs_sigma_mas = 0.5
 z1_sigma = 1.4826*mad
 M_BH_sun = 6.5e+09
 M_BH = M_BH_sun*M_sun
@@ -33,8 +35,9 @@ class Model(object):
         M_BH_sun = np.random.normal(6.5, 0.9)
         D_Mpc = np.random.normal(16.8, 0.8)
         theta_obs_deg = np.random.normal(17, 2)
+        theta_jet_deg = np.random.uniform(5, 15)
         a = np.random.uniform(0, 1)
-        return np.array([lg_sigma_M, M_BH_sun, D_Mpc, theta_obs_deg, a])
+        return np.array([lg_sigma_M, M_BH_sun, D_Mpc, theta_obs_deg, theta_jet_deg, a])
 
     def perturb(self, params):
         """
@@ -42,7 +45,7 @@ class Model(object):
         and modifies it in-place. The return value is still logH.
         """
         logH = 0.0
-        which = np.random.randint(5)
+        which = np.random.randint(6)
 
         # lg_sigma_M
         if which == 0:
@@ -64,6 +67,11 @@ class Model(object):
             logH -= -0.5*((params[which] - 17.)/2.)**2
             params[which] += 2.*self.randh()
             logH += -0.5*((params[which] - 17.)/2.)**2
+        elif which == 4:
+            theta_jet_deg = params[which]
+            theta_jet_deg += 10.0*self.randh()
+            theta_jet_deg = self.wrap(theta_jet_deg, 5, 15)
+            params[which] = theta_jet_deg
         else:
             a = params[which]
             a += 1.0*self.randh()
@@ -76,9 +84,9 @@ class Model(object):
         """
         Gaussian sampling distribution.
         """
-        lg_sigma_M, M_BH_sun, D, theta_obs_deg, a = params
+        lg_sigma_M, M_BH_sun, D, theta_obs_deg, theta_jet_deg, a = params
         # In pc
-        z1_model_pc = get_z1_Ma(1.1, 10**lg_sigma_M, M_BH_sun*1e+09, a, np.deg2rad(10.))
+        z1_model_pc = get_z1_Ma(1.1, 10**lg_sigma_M, M_BH_sun*1e+09, a, np.deg2rad(theta_jet_deg))
         # In mas
         z1_model_mas = self.rad_to_mas*(z1_model_pc*np.sin(np.deg2rad(theta_obs_deg))/(1e+06*D))
         # return -0.5*data.shape[0]*np.log(2*np.pi*var) \
@@ -125,11 +133,32 @@ logZ, _, _ = postprocess(plot=True,
 
 post_samples = np.loadtxt(fitted_file)
 n_post = len(post_samples)
-post_samples_use = np.vstack((post_samples[:, 0], post_samples[:, 4])).T
-fig = corner.corner(post_samples_use, show_titles=True, labels=[r"$\lg{\sigma_{\rm M}}$",
-                                                            # r"${M_{\rm BH}}$, [$10^9 M_{\rm sun}$]",
-                                                            # r"$D$, [Mpc]",
-                                                            # r"$\theta_{\rm obs}$, $^{\circ}$",
-                                                                r"$a$"], quantiles=[0.16, 0.50, 0.84])
-fig.savefig("inference_sigma_a.png", bbox_inches="tight", dpi=300)
+n_params = post_samples.shape[1]
+post_samples_use = np.vstack((post_samples[:, 0], post_samples[:, 1], post_samples[:, 2], post_samples[:, 3],
+                              post_samples[:, 4], np.log10(post_samples[:, 5]))).T
+fig, axes = plt.subplots(nrows=n_params, ncols=n_params)
+fig.set_size_inches(15, 15)
+fig = corner.corner(post_samples_use,
+                    # show_titles=True,
+                    labels=[r"$\log_{10}{\sigma_{\rm M}}$",
+                            r"${M_{\rm BH}}$, [$10^9 M_{\rm sun}$]",
+                            r"$D$, [Mpc]",
+                            r"$\theta_{\rm obs}$, $^{\circ}$",
+                            r"$\theta_{\rm jet}$, $^{\circ}$",
+                            r"$\log_{10}{a}$"],
+                    # quantiles=[0.16, 0.50, 0.84],
+                    plot_contours=True, color="gray", range=n_params*[1.0],
+                    plot_datapoints=False, fill_contours=True,
+                    hist2d_kwargs={"plot_datapoints": False,
+                                   "plot_density": True,
+                                   "plot_contours": True,
+                                   "no_fill_contours": True},
+                    hist_kwargs={# 'normed': True,
+                                # 'histtype': 'step',
+                                # 'stacked': True,
+                                'ls': 'solid',
+                                'density': True},
+                    levels=(0.393, 0.865, 0.989),
+                    fig=fig)
+fig.savefig("inference_plus_theta_jet.png", bbox_inches="tight", dpi=300)
 plt.show()

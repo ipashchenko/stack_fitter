@@ -75,6 +75,30 @@ def get_z1_Ma(gamma_in, sigma_M, M_BH_sun, a, theta_jet=None):
         return np.sqrt(gamma_in*sigma_M)*R_L/theta_jet/pc
 
 
+def get_r1_Ma(gamma_in, sigma_M, M_BH_sun, a):
+    """
+    The radius of the jet at the break z_1.
+
+    :param gamma_in:
+        Initial Lorenz factor of the bulk motion.
+    :param sigma_M:
+        Initial magnetization.
+    :param M_BH_sun:
+        Black hole mass [Sun masses].
+    :param a:
+        Spin of the black hole.
+    :return:
+        The radius at the break position in pc.
+    """
+    R_L = get_R_L(M_BH_sun*M_sun, a)
+    # Parabolic case
+    if theta_jet is None:
+        return gamma_in*sigma_M*R_L/pc
+    # Conical case
+    else:
+        return np.sqrt(gamma_in*sigma_M)*R_L/pc
+
+
 def get_z1_RL(gamma_in, sigma_M, R_L, theta_jet=None):
     """
     The de-projected (real, not observed) position of the break.
