@@ -26,6 +26,20 @@ MatrixXd squared_exponential_kernel(VectorXd x, double amp, double scale, double
 	return C;
 }
 
+
+MatrixXd rational_quadratic_kernel(VectorXd x, double amp, double scale, double alpha, double jitter)
+{
+	MatrixXd sqdist = - 2*x*x.transpose();
+	sqdist.rowwise() += x.array().square().transpose().matrix();
+	sqdist.colwise() += x.array().square().matrix();
+	sqdist *= 0.5/(alpha*scale*scale);
+	MatrixXd C = amp * amp * pow(1. + sqdist.array(), -alpha);
+	MatrixXd I = MatrixXd::Identity(x.size(), x.size());
+	I *= jitter;
+	C += I;
+	return C;
+}
+
 MatrixXd non_stationary_squared_exponential_kernel(VectorXd x, double amp, double scale)
 {
 	return MatrixXd();
