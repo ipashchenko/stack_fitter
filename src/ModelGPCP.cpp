@@ -9,7 +9,7 @@ using std::pow;
 
 ModelGPCP::ModelGPCP()
 : a_before(0.0), a_after(0.0), b_before(0.0), r0(0.0), r1(0.0), changepoint(0.0),frac_log_error_scale(0.0),
-  abs_log_error_scale(0.0), log_dr(0.0), log_rmin(0.0), log_rmax(0.0), gp_logamp(0.0), gp_scale(1.0)
+  abs_log_error_scale(0.0), log_dr(0.0), log_rmin(0.0), log_rmax(0.0), gp_logamp(0.0), gp_scale(1.0), gp_logalpha(0.0)
 {
 	VectorXd r = Data::get_instance().get_r();
 	mu = VectorXd::Zero(r.size());
@@ -29,8 +29,12 @@ void ModelGPCP::from_prior(DNest4::RNG &rng)
 	
 	std::cout << "r_min = " << r_min << ", r_max = " << r_max << "\n";
 	std::cout << "log_dr = " << log_dr << "\n";
-	
-	DNest4::Gaussian gaussian(-2., 1.0);
+
+	// This works with x10 data
+//	DNest4::Gaussian gaussian(-2., 1.0);
+	DNest4::Gaussian gaussian(-2., 0.2);
+	DNest4::Cauchy halfcauchy(0.0, 0.1);
+	DNest4::Uniform uniform(-5., 5.0);
 	b_before = -2.0 + 1.0*rng.randn();
 	a_before = 1.0 + 0.5*rng.randn();
 	a_after = 1.0 + 0.5*rng.randn();
@@ -43,6 +47,8 @@ void ModelGPCP::from_prior(DNest4::RNG &rng)
 	
 	
 	gp_logamp = gaussian.generate(rng);
+	gp_scale = halfcauchy.generate(rng);
+	gp_logalpha = uniform.generate(rng);
 }
 
 double ModelGPCP::perturb(DNest4::RNG &rng)
@@ -133,7 +139,7 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 	}
 	
 	// Perturb changepoint making it larger than r1 (changepoint can't be closer to the core than r1)
-	else if(r > 0.4 && r <= 0.5) {
+	else if(r > 0.4 && r <= 0.55) {
 //        double delta;
 //        while(true){
 //            double cp = changepoint;
@@ -153,45 +159,45 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 		calculate_prediction();
 	}
 	
-	// Perturb scale error
-	else if(r > 0.5 && r <= 0.6)
-	{
-		logH -= -0.5*pow((frac_log_error_scale + 4.0) / 1.0, 2.0);
-		frac_log_error_scale += 1.0 * rng.randh();
-		logH += -0.5*pow((frac_log_error_scale + 4.0) / 1.0, 2.0);
-		// Pre-reject
-		if(rng.rand() >= exp(logH))
-		{
-			return -1E300;
-		}
-		else
-		{
-			logH = 0.0;
-		}
-		// No need to re-calculate model. Just calculate loglike.
-	}
-	
-	// Perturb additive error
-	else if(r > 0.6 && r <= 0.7)
-	{
-		
-		logH -= -0.5*pow((abs_log_error_scale + 10.0) / 1.0, 2.0);
-		abs_log_error_scale += 1.0 * rng.randh();
-		logH += -0.5*pow((abs_log_error_scale + 10.0) / 1.0, 2.0);
-		// Pre-reject
-		if(rng.rand() >= exp(logH))
-		{
-			return -1E300;
-		}
-		else
-		{
-			logH = 0.0;
-		}
-		// No need to re-calculate model. Just calculate loglike.
-	}
+//	// Perturb scale error
+//	else if(r > 0.5 && r <= 0.6)
+//	{
+//		logH -= -0.5*pow((frac_log_error_scale + 4.0) / 1.0, 2.0);
+//		frac_log_error_scale += 1.0 * rng.randh();
+//		logH += -0.5*pow((frac_log_error_scale + 4.0) / 1.0, 2.0);
+//		// Pre-reject
+//		if(rng.rand() >= exp(logH))
+//		{
+//			return -1E300;
+//		}
+//		else
+//		{
+//			logH = 0.0;
+//		}
+//		// No need to re-calculate model. Just calculate loglike.
+//	}
+//
+//	// Perturb additive error
+//	else if(r > 0.6 && r <= 0.7)
+//	{
+//
+//		logH -= -0.5*pow((abs_log_error_scale + 10.0) / 1.0, 2.0);
+//		abs_log_error_scale += 1.0 * rng.randh();
+//		logH += -0.5*pow((abs_log_error_scale + 10.0) / 1.0, 2.0);
+//		// Pre-reject
+//		if(rng.rand() >= exp(logH))
+//		{
+//			return -1E300;
+//		}
+//		else
+//		{
+//			logH = 0.0;
+//		}
+//		// No need to re-calculate model. Just calculate loglike.
+//	}
 	
 	// Perturb r0
-	else if(r > 0.7 && r <= 0.8)
+	else if(r > 0.55 && r <= 0.7)
 	{
 		
 		logH -= -0.5*pow((r0 + 2.0)/1.0, 2.0);
@@ -211,18 +217,26 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 		calculate_prediction();
 	}
 	
+	// Scale
+	else if(r > 0.7 && r <= 0.8)
+	{
+		DNest4::Cauchy halfcauchy(0.0, 0.1);
+		logH += halfcauchy.perturb(gp_scale, rng);
+		// No need to re-calculate model. Just calculate loglike.
+	}
+	
+	// Alpha
+	else if(r > 0.8 && r <= 0.9)
+	{
+		DNest4::Uniform uniform(-5., 5.0);
+		logH += uniform.perturb(gp_logalpha, rng);
+		// No need to re-calculate model. Just calculate loglike.
+	}
+	
 	else
 	{
-		DNest4::Gaussian gaussian(-2., 1.0);
+		DNest4::Gaussian gaussian(-2., 0.2);
 		logH += gaussian.perturb(gp_logamp, rng);
-		// Pre-reject
-		if(rng.rand() >= exp(logH))
-		{
-			return -1E300;
-		}
-		else {
-			logH = 0.0;
-		}
 		// No need to re-calculate model. Just calculate loglike.
 	}
 	
@@ -254,12 +268,14 @@ double ModelGPCP::log_likelihood() const
 	VectorXd R = Data::get_instance().get_R();
 	auto n = r.size();
 	VectorXd diff = R - mu;
-	VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
 	
-	MatrixXd C = squared_exponential_kernel(r, exp(gp_logamp), gp_scale);
+//	MatrixXd C = squared_exponential_kernel(r, exp(gp_logamp), gp_scale);
+	MatrixXd C = rational_quadratic_kernel(r, exp(gp_logamp), gp_scale, exp(gp_logalpha));
 //	MatrixXd C_ = linear_kernel(r, 1e-05, 1.0, -exp(r0));
 //	MatrixXd CC = C.array()*C_.array();
-	C += disp.asDiagonal();
+
+//	VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
+//	C += disp.asDiagonal();
 	
 //	https://stackoverflow.com/a/39735211
 	Eigen::LLT<Eigen::MatrixXd> llt = C.llt();
@@ -282,7 +298,9 @@ void ModelGPCP::print(std::ostream &out) const
 	out << changepoint << "\t";
 	out << abs_log_error_scale << "\t";
 	out << frac_log_error_scale << "\t";
-	out << gp_logamp;
+	out << gp_logamp << "\t";
+	out << gp_scale << "\t";
+	out << gp_logalpha;
 }
 
 std::string ModelGPCP::description() const
@@ -297,7 +315,9 @@ std::string ModelGPCP::description() const
 	descr += "log_changepoint ";
 	descr += "abs_log_error_scale ";
 	descr += "frac_log_error_scale ";
-	descr += "gp_logamp";
+	descr += "gp_logamp ";
+	descr += "gp_scale ";
+	descr += "gp_logalpha";
 	
 	return descr;
 }

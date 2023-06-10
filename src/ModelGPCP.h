@@ -25,6 +25,7 @@ class ModelGPCP
 		double log_rmax;
 		double gp_logamp;
 		double gp_scale;
+		double gp_logalpha;
 		VectorXd mu;
 
         // Calculate prediction of spectra
