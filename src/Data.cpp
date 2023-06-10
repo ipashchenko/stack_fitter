@@ -27,7 +27,7 @@ void Data::load(std::string filename)
 	
 	std::vector<double> r__, R__;
 	int size = r_.size();
-	for(int i=0; i < size; i += 10)
+	for(int i=0; i < size; i += 2)
 	{
 		r__.push_back(r_[i]);
 		R__.push_back(R_[i]);
