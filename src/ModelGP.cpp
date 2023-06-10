@@ -22,7 +22,7 @@ void ModelGP::from_prior(DNest4::RNG &rng)
 	b = -2.0 + 1.0*rng.randn();
 	a = 1.0 + 0.5*rng.randn();
 	r0 = -2.0 + 1.0*rng.randn();
-	frac_log_error_scale = -4.0 + 1.0 * rng.randn();
+	frac_log_error_scale = -10.0 + 1.0 * rng.randn();
 	abs_log_error_scale = -10.0 + 1.0 * rng.randn();
 	gp_logamp = gaussian.generate(rng);
 }
@@ -74,9 +74,9 @@ double ModelGP::perturb(DNest4::RNG &rng)
 	else if(r > 0.4 && r <= 0.6)
 	{
 		
-		logH -= -0.5*pow((frac_log_error_scale + 4.0) / 1.0, 2.0);
+		logH -= -0.5*pow((frac_log_error_scale + 10.0) / 1.0, 2.0);
 		frac_log_error_scale += 1.0 * rng.randh();
-		logH += -0.5*pow((frac_log_error_scale + 4.0) / 1.0, 2.0);
+		logH += -0.5*pow((frac_log_error_scale + 10.0) / 1.0, 2.0);
 		// Pre-reject
 		if(rng.rand() >= exp(logH))
 		{
@@ -158,10 +158,13 @@ double ModelGP::log_likelihood() const
 	VectorXd disp = (mu.cwiseProduct(mu)*exp(2*frac_log_error_scale)).array() + exp(2*abs_log_error_scale);
 	
 	MatrixXd C = squared_exponential_kernel(r, exp(gp_logamp), gp_scale);
-	C += disp.asDiagonal();
+	MatrixXd C_ = linear_kernel(r, 1e-05, 0.01, -exp(r0));
+	MatrixXd CC = C.array()*C_.array();
+	CC += disp.asDiagonal();
+//	C += disp.asDiagonal();
 	
 //	https://stackoverflow.com/a/39735211
-	Eigen::LLT<Eigen::MatrixXd> llt = C.llt();
+	Eigen::LLT<Eigen::MatrixXd> llt = CC.llt();
 	double sqrt_det = llt.matrixL().determinant();
 	// likelihood of Radius
 	loglik = -0.5*n*log(2*M_PI) - log(sqrt_det) - 0.5*(llt.matrixL().solve(diff)).squaredNorm();
