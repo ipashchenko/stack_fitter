@@ -4,16 +4,17 @@ import pytensor.tensor as pt
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import arviz as az
 
 data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
 
-n_each = 1
+n_each = 5
 r, R = np.loadtxt(data_file, unpack=True)
 r_min = np.min(r)
 r_max = np.max(r)
 r = r[::n_each]
 R = R[::n_each]
-rnew = np.linspace(np.min(r), np.max(r), len(r))
+rnew = np.linspace(np.min(r), np.max(r), 1000)
 r = r[:, None]
 rnew = rnew[:, None]
 
@@ -64,11 +65,11 @@ with pm.Model() as model:
     mean = MyMeanCP(a_before, b_before, a_after, r0, r1, cp)
 
     eta = pm.HalfNormal("eta", sigma=0.02, initval=0.02)
-    logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
     sigma = pm.HalfCauchy("sigma", beta=0.1, initval=0.1)
     # l = 1.0
-    l = pm.HalfCauchy("l", beta=0.1, initval=0.1)
     # cov = eta**2 * pm.gp.cov.ExpQuad(1, l)
+    l = pm.HalfCauchy("l", beta=0.1, initval=0.1)
+    logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
     cov = eta**2 * pm.gp.cov.RatQuad(1, pt.exp(logalpha), l)
 
     # c = pm.Deterministic("c", -pt.exp(r0))
@@ -88,35 +89,60 @@ with pm.Model() as model:
     gp = pm.gp.Marginal(mean_func=mean, cov_func=cov_total)
     y_ = gp.marginal_likelihood("y", X=r, y=R, sigma=sigma)
 
-    mp = pm.find_MAP(include_transformed=True)
+    trace = pm.sample(draws=500, chains=2, cores=2, tune=1000, progressbar=True, nuts_sampler="numpyro")
 
-    print(sorted([name + ":" + str(mp[name]) for name in mp.keys() if not name.endswith("_")]))
+az.plot_trace(trace)
+plt.show()
+print(az.summary(trace))
+samples = az.extract(trace)
+
+with model:
+    f_pred = gp.conditional("f_pred", rnew)
+with model:
+    pred_samples = pm.sample_posterior_predictive(trace, var_names=["f_pred"])
+
+f_pr = az.extract(pred_samples, var_names="f_pred", group="posterior_predictive").transpose("sample", ...)
+
+from pymc.gp.util import plot_gp_dist
+fig, axes = plt.subplots(1, 1)
+axes.scatter(r[:, 0], R)
+# plot_gp_dist(axes, pred_samples["posterior_predictive"], rnew, ...)
+plot_gp_dist(axes, f_pr, rnew[:, 0])
+
+plt.show()
 
 
-    a_before_mp = float(mp['a_before'])
-    b_before_mp = float(mp['b_before'])
-    a_after_mp = float(mp['a_after'])
-    b_after_mp = float(mp['b_after'])
-    r0_mp = float(mp['r0'])
-    r1_mp = float(mp['r1'])
-    cp_mp = float(mp["cp"])
+import sys
+sys.exit(0)
 
-    mu, var = gp.predict(rnew, point=mp, diag=True)
-    only_gp = np.where(rnew[:, 0] < cp_mp,
-                       mu - np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
-                       mu - np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
-    model = np.where(rnew[:, 0] < cp_mp,
-                     np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
-                     np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
-    fig, axes = plt.subplots(1, 1)
-    axes.scatter(r[:, 0], R)
-    axes.plot(rnew[:, 0], only_gp, color="C1")
-    axes.plot(rnew[:, 0], model, color="red")
-    axes.fill_between(rnew[:, 0], only_gp - np.sqrt(var), only_gp + np.sqrt(var), color="C1", alpha=0.5)
-    plt.axhline(0.0)
-    axes.set_xlabel("r, mas")
-    axes.set_ylabel("R, mas")
-    plt.show()
+
+print(sorted([name + ":" + str(mp[name]) for name in mp.keys() if not name.endswith("_")]))
+
+a_before_mp = float(mp['a_before'])
+b_before_mp = float(mp['b_before'])
+a_after_mp = float(mp['a_after'])
+b_after_mp = float(mp['b_after'])
+r0_mp = float(mp['r0'])
+r1_mp = float(mp['r1'])
+cp_mp = float(mp["cp"])
+
+mu, var = gp.predict(rnew, point=mp, diag=True)
+only_gp = np.where(rnew[:, 0] < cp_mp,
+                   mu - np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
+                   mu - np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
+model = np.where(rnew[:, 0] < cp_mp,
+                 np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
+                 np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
+fig, axes = plt.subplots(1, 1)
+axes.scatter(r[:, 0], R)
+plot_gp_dist(ax, pred_samples["f_pred"], rnew)
+axes.plot(rnew[:, 0], only_gp, color="C1")
+axes.plot(rnew[:, 0], model, color="red")
+axes.fill_between(rnew[:, 0], only_gp - np.sqrt(var), only_gp + np.sqrt(var), color="C1", alpha=0.5)
+plt.axhline(0.0)
+axes.set_xlabel("r, mas")
+axes.set_ylabel("R, mas")
+plt.show()
 
 
 
