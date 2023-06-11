@@ -22,35 +22,35 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 changepoint = True
 GP = True
-gp_scale = 1.0
-n_pred = 60
-n_each = 10
+# gp_scale = 1.0
+n_pred = 1000
+n_each = 2
 alpha = 0.05
 small_font = 12
 data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
 save_dir = "/home/ilya/github/stack_fitter"
 run_dir = "/home/ilya/github/stack_fitter/Release"
-fitted_file = "/home/ilya/github/stack_fitter/Release/posterior_sample_each10.txt"
+fitted_file = "/home/ilya/github/stack_fitter/Release/posterior_sample.txt"
 
-# logZ, _, _ = postprocess(plot=True,
-#                          sample_file=os.path.join(run_dir, 'sample.txt'),
-#                          level_file=os.path.join(run_dir, 'levels.txt'),
-#                          sample_info_file=os.path.join(run_dir, 'sample_info.txt'),
-#                          post_sample_file=os.path.join(run_dir, "posterior_sample.txt"))
-logZ = 1.
+logZ, _, _ = postprocess(plot=True,
+                         sample_file=os.path.join(run_dir, 'sample.txt'),
+                         level_file=os.path.join(run_dir, 'levels.txt'),
+                         sample_info_file=os.path.join(run_dir, 'sample_info.txt'),
+                         post_sample_file=os.path.join(run_dir, "posterior_sample.txt"))
+# logZ = 1.
 
 post_samples = np.loadtxt(fitted_file)
 n_post = len(post_samples)
 
 r, R = np.loadtxt(data_file, unpack=True)
-r_grid = np.linspace(np.min(r), np.max(r), 100)
+r_grid = np.linspace(np.min(r), np.max(r), 1000)
 r = r[::n_each]
 R = R[::n_each]
 # fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
-fig, axes = plt.subplots(1, 1, figsize=(9.6, 7.2))
+fig, axes = plt.subplots(1, 1)#, figsize=(9.6, 7.2))
 axes.set_xlabel("Separation (mas)")
 axes.set_ylabel(r"Width (mas)")
-axes.scatter(r, R, zorder=5, color="black")
+axes.scatter(r, R, zorder=5, color="black", s=3)
 axes.set_ylim([-2, 5])
 
 if n_pred > n_post:
@@ -61,7 +61,8 @@ if not changepoint:
     if not GP:
         a_samples, b_samples, r0_samples, abs_error_samples, frac_error_samples = np.split(post_samples, 5, 1)
     else:
-        a_samples, b_samples, r0_samples, abs_error_samples, frac_error_samples, gp_logamp_samples = np.split(post_samples, 6, 1)
+        a_samples, b_samples, r0_samples, abs_error_samples, frac_error_samples, gp_logamp_samples, gp_scale_samples,\
+            gp_logalpha_samples = np.split(post_samples, 8, 1)
 
     low, med, up = scoreatpercentile(a_samples, [16, 50, 84])
     low_r0, med_r0, up_r0 = scoreatpercentile(np.exp(r0_samples), [16, 50, 84])
@@ -71,23 +72,37 @@ if not changepoint:
     #           transform=axes.transAxes, ha="left")
     axes.axhline(0., lw=2, color="black")
 
+    model_grid_samples = list()
+    GP_only_grid_samples = list()
+
     for i in draw_idx:
         a = a_samples[i]
         b = b_samples[i]
         r0 = np.exp(r0_samples[i])
+        mu_model = np.exp(b)*(r + r0)**a
+        mu_model_grid = np.exp(b)*(r + r0)**a
         if GP:
-            mu_model = np.exp(b)*(r + r0)**a
             frac_error = np.exp(frac_error_samples[i])
             abs_error = np.exp(abs_error_samples[i])
             amp_gp = np.exp(gp_logamp_samples[i])
-            sigma = np.hypot(mu_model*frac_error, abs_error)
+            scale_gp = gp_scale_samples[i]
+            alpha_gp = np.exp(gp_logalpha_samples[i])
+            # sigma = np.hypot(mu_model*frac_error, abs_error)
             # FIXME: Here sigma must be a scalar!
-            # mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, sigma)
+            # mu_pred, cov_pred = make_GP_SE_predictions(r_grid, r, R - mu_model, amp_gp, scale_gp, np.sqrt(1e-05))
+            mu_pred, cov_pred = make_GP_RQ_predictions(r_grid, r, R - mu_model, amp_gp, scale_gp, alpha_gp, np.sqrt(1e-05))
             # mu_pred, cov_pred = make_GP_SElin_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, 1e-05, 1, -r0, sigma)
             R_pred = np.random.multivariate_normal(mu_pred, cov_pred)
+            GP_only_grid_samples.append(R_pred)
             axes.plot(r_grid, R_pred, color="C2", alpha=alpha, zorder=4)
         axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a + R_pred, color="C1", alpha=alpha, zorder=3)
         axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="C0", alpha=alpha, zorder=3)
+
+    model_grid_samples = np.atleast_2d(model_grid_samples)
+    axes = gp_dist_plot(model_grid_samples, r_grid, axes, "Reds")
+    if GP:
+        GP_only_grid_samples = np.atleast_2d(GP_only_grid_samples)
+        axes = gp_dist_plot(GP_only_grid_samples, r_grid, axes, "Blues")
 
 else:
     if not GP:
@@ -95,8 +110,8 @@ else:
             log_changepoint_samples, abs_error_samples, frac_error_samples = np.split(post_samples, 9, 1)
     else:
         a_before_samples, a_after_samples, b_before_samples, b_after_samples, r0_samples, r1_samples, \
-            log_changepoint_samples, abs_error_samples, frac_error_samples, gp_logamp_samples , gp_scale_samples,\
-            gp_logalpha_samples = np.split(post_samples, 10, 1)
+            log_changepoint_samples, abs_error_samples, frac_error_samples, gp_logamp_samples, gp_scale_samples,\
+            gp_logalpha_samples = np.split(post_samples, 12, 1)
     low_a_before, med_a_before, up_a_before = scoreatpercentile(a_before_samples, [16, 50, 84])
     low_a_after, med_a_after, up_a_after = scoreatpercentile(a_after_samples, [16, 50, 84])
     low_cp, med_cp, up_cp = scoreatpercentile(np.exp(log_changepoint_samples), [16, 50, 84])
@@ -160,9 +175,10 @@ else:
         #           color="C0", alpha=alpha, zorder=3)
 
     model_grid_samples = np.atleast_2d(model_grid_samples)
-    GP_only_grid_samples = np.atleast_2d(GP_only_grid_samples)
     axes = gp_dist_plot(model_grid_samples, r_grid, axes, "Reds")
-    axes = gp_dist_plot(GP_only_grid_samples, r_grid, axes, "Blues")
+    if GP:
+        GP_only_grid_samples = np.atleast_2d(GP_only_grid_samples)
+        axes = gp_dist_plot(GP_only_grid_samples, r_grid, axes, "Blues")
 
     axes.axhline(0., lw=2, color="black")
 
