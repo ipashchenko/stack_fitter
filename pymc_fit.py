@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
 
-n_each = 1
+n_each = 2
 r, R = np.loadtxt(data_file, unpack=True)
 r_min = np.min(r)
 r_max = np.max(r)
@@ -55,7 +55,7 @@ def scaling_function(x, a, b, x0):
 
 with pm.Model() as model:
     a_before = pm.Normal("a_before", mu=1., sigma=0.25)
-    b_before = pm.Normal("b_before", mu=-2., sigma=1.0)
+    b_before = pm.Normal("b_before", mu=0., sigma=1.0)
     a_after = pm.Normal("a_after", mu=1., sigma=0.25)
     r0 = pm.Normal("r0", mu=-2., sigma=1.0)
     r1 = pm.Normal("r1", mu=0., sigma=0.5)
