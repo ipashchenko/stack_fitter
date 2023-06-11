@@ -30,12 +30,10 @@ void ModelGPCP::from_prior(DNest4::RNG &rng)
 	std::cout << "r_min = " << r_min << ", r_max = " << r_max << "\n";
 	std::cout << "log_dr = " << log_dr << "\n";
 
-	// This works with x10 data
-//	DNest4::Gaussian gaussian(-2., 1.0);
 	DNest4::Gaussian gaussian(-2., 0.2);
-	DNest4::Cauchy halfcauchy(0.0, 0.1);
+	DNest4::TruncatedCauchy halfcauchy(0.0, 0.1);
 	DNest4::Uniform uniform(-5., 5.0);
-	b_before = -2.0 + 1.0*rng.randn();
+	b_before = 0.0 + 1.0*rng.randn();
 	a_before = 1.0 + 0.5*rng.randn();
 	a_after = 1.0 + 0.5*rng.randn();
 	r0 = -2.0 + 1.0*rng.randn();
@@ -220,7 +218,7 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 	// Scale
 	else if(r > 0.7 && r <= 0.8)
 	{
-		DNest4::Cauchy halfcauchy(0.0, 0.1);
+		DNest4::TruncatedCauchy halfcauchy(0.0, 0.1);
 		logH += halfcauchy.perturb(gp_scale, rng);
 		// No need to re-calculate model. Just calculate loglike.
 	}
@@ -232,7 +230,7 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 		logH += uniform.perturb(gp_logalpha, rng);
 		// No need to re-calculate model. Just calculate loglike.
 	}
-	
+	// Amplitude
 	else
 	{
 		DNest4::Gaussian gaussian(-2., 0.2);

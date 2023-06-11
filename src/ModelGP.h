@@ -19,6 +19,7 @@ class ModelGP
 		double abs_log_error_scale;
 		double gp_logamp;
 		double gp_scale;
+		double gp_logalpha;
 		VectorXd mu;
 
         // Calculate prediction of spectra
