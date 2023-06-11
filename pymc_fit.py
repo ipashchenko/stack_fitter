@@ -4,6 +4,16 @@ import pytensor.tensor as pt
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+label_size = 18
+matplotlib.rcParams['xtick.labelsize'] = label_size
+matplotlib.rcParams['ytick.labelsize'] = label_size
+matplotlib.rcParams['axes.titlesize'] = label_size
+matplotlib.rcParams['axes.labelsize'] = label_size
+matplotlib.rcParams['font.size'] = label_size
+matplotlib.rcParams['legend.fontsize'] = label_size
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 
 data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
 
@@ -51,98 +61,38 @@ class MyMeanCP(pm.gp.mean.Mean):
 def scaling_function(x, a, b, x0):
     return pt.exp(b)*pt.power(x + pt.exp(x0), a)
 
-
-
-with pm.Model() as model:
-    a_before = pm.Normal("a_before", mu=1., sigma=0.25)
-    b_before = pm.Normal("b_before", mu=0., sigma=1.0)
-    a_after = pm.Normal("a_after", mu=1., sigma=0.25)
-    r0 = pm.Normal("r0", mu=-2., sigma=1.0)
-    r1 = pm.Normal("r1", mu=0., sigma=0.5)
-    cp = pm.Uniform("cp", lower=r_min, upper=r_max)
-    b_after = pm.Deterministic("b_after", b_before + a_before*pt.log(cp + pt.exp(r0)) - a_after*pt.log(cp + r1))
-    mean = MyMeanCP(a_before, b_before, a_after, r0, r1, cp)
-
-    eta = pm.HalfNormal("eta", sigma=0.02, initval=0.02)
-    logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
-    sigma = pm.HalfCauchy("sigma", beta=0.1, initval=0.1)
-    # l = 1.0
-    l = pm.HalfCauchy("l", beta=0.1, initval=0.1)
-    # cov = eta**2 * pm.gp.cov.ExpQuad(1, l)
-    cov = eta**2 * pm.gp.cov.RatQuad(1, pt.exp(logalpha), l)
-
-    # c = pm.Deterministic("c", -pt.exp(r0))
-    # offset = pm.HalfCauchy("offset", beta=0.1, initval=0.1)
-    # cov_poly = pm.gp.cov.Polynomial(1, c=c, d=0.5, offset=offset)
-
-    # Multiplication
-    # cov_total = cov * cov_poly
-    cov_total = cov
-
-    # Scaling covariance
-    # cov_total = pm.gp.cov.ScaledCov(1, scaling_func=scaling_function, args=(a, b, r0), cov_func=cov)
-    # Add white noise to stabilise
-    # cov_total += pm.gp.cov.WhiteNoise(1e-5)
-
-
-    gp = pm.gp.Marginal(mean_func=mean, cov_func=cov_total)
-    y_ = gp.marginal_likelihood("y", X=r, y=R, sigma=sigma)
-
-    mp = pm.find_MAP(include_transformed=True)
-
-    print(sorted([name + ":" + str(mp[name]) for name in mp.keys() if not name.endswith("_")]))
-
-
-    a_before_mp = float(mp['a_before'])
-    b_before_mp = float(mp['b_before'])
-    a_after_mp = float(mp['a_after'])
-    b_after_mp = float(mp['b_after'])
-    r0_mp = float(mp['r0'])
-    r1_mp = float(mp['r1'])
-    cp_mp = float(mp["cp"])
-
-    mu, var = gp.predict(rnew, point=mp, diag=True)
-    only_gp = np.where(rnew[:, 0] < cp_mp,
-                       mu - np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
-                       mu - np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
-    model = np.where(rnew[:, 0] < cp_mp,
-                     np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
-                     np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
-    fig, axes = plt.subplots(1, 1)
-    axes.scatter(r[:, 0], R)
-    axes.plot(rnew[:, 0], only_gp, color="C1")
-    axes.plot(rnew[:, 0], model, color="red")
-    axes.fill_between(rnew[:, 0], only_gp - np.sqrt(var), only_gp + np.sqrt(var), color="C1", alpha=0.5)
-    plt.axhline(0.0)
-    axes.set_xlabel("r, mas")
-    axes.set_ylabel("R, mas")
-    plt.show()
-
-
-
+########################################################################################################################
 
 # with pm.Model() as model:
-#     a = pm.Normal("a", mu=1., sigma=0.5)
-#     b = pm.Normal("b", mu=-2., sigma=1.0)
+#     a_before = pm.Normal("a_before", mu=1., sigma=0.25)
+#     b_before = pm.Normal("b_before", mu=0., sigma=1.0)
+#     a_after = pm.Normal("a_after", mu=1., sigma=0.25)
 #     r0 = pm.Normal("r0", mu=-2., sigma=1.0)
-#     mean = MyMean(a, b, r0)
+#     r1 = pm.Normal("r1", mu=0., sigma=0.5)
+#     cp = pm.Uniform("cp", lower=r_min, upper=r_max)
+#     b_after = pm.Deterministic("b_after", b_before + a_before*pt.log(cp + pt.exp(r0)) - a_after*pt.log(cp + r1))
+#     mean = MyMeanCP(a_before, b_before, a_after, r0, r1, cp)
 #
-#     eta = pm.HalfCauchy("eta", beta=2., initval=2.0)
+#     eta = pm.HalfNormal("eta", sigma=0.02, initval=0.02)
+#     logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
 #     sigma = pm.HalfCauchy("sigma", beta=0.1, initval=0.1)
-#     l = 1.0
-#     cov = eta**2 * pm.gp.cov.ExpQuad(1, l)
+#     # l = 1.0
+#     l = pm.HalfCauchy("l", beta=0.1, initval=0.1)
+#     # cov = eta**2 * pm.gp.cov.ExpQuad(1, l)
+#     cov = eta**2 * pm.gp.cov.RatQuad(1, pt.exp(logalpha), l)
 #
-#     c = pm.Deterministic("c", -pt.exp(r0))
-#     offset = pm.HalfCauchy("offset", beta=0.1, initval=0.1)
-#     cov_poly = pm.gp.cov.Polynomial(1, c=c, d=a, offset=offset)
+#     # c = pm.Deterministic("c", -pt.exp(r0))
+#     # offset = pm.HalfCauchy("offset", beta=0.1, initval=0.1)
+#     # cov_poly = pm.gp.cov.Polynomial(1, c=c, d=0.5, offset=offset)
 #
 #     # Multiplication
 #     # cov_total = cov * cov_poly
+#     cov_total = cov
 #
 #     # Scaling covariance
-#     cov_total = pm.gp.cov.ScaledCov(1, scaling_func=scaling_function, args=(a, b, r0), cov_func=cov)
+#     # cov_total = pm.gp.cov.ScaledCov(1, scaling_func=scaling_function, args=(a, b, r0), cov_func=cov)
 #     # Add white noise to stabilise
-#     cov_total += pm.gp.cov.WhiteNoise(1e-5)
+#     # cov_total += pm.gp.cov.WhiteNoise(1e-5)
 #
 #
 #     gp = pm.gp.Marginal(mean_func=mean, cov_func=cov_total)
@@ -153,19 +103,84 @@ with pm.Model() as model:
 #     print(sorted([name + ":" + str(mp[name]) for name in mp.keys() if not name.endswith("_")]))
 #
 #
-#     a_mp = float(mp['a'])
-#     b_mp = float(mp['b'])
+#     a_before_mp = float(mp['a_before'])
+#     b_before_mp = float(mp['b_before'])
+#     a_after_mp = float(mp['a_after'])
+#     b_after_mp = float(mp['b_after'])
 #     r0_mp = float(mp['r0'])
+#     r1_mp = float(mp['r1'])
+#     cp_mp = float(mp["cp"])
 #
 #     mu, var = gp.predict(rnew, point=mp, diag=True)
-#     only_gp = mu - np.exp(b_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_mp
-#
+#     only_gp = np.where(rnew[:, 0] < cp_mp,
+#                        mu - np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
+#                        mu - np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
+#     model = np.where(rnew[:, 0] < cp_mp,
+#                      np.exp(b_before_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_before_mp,
+#                      np.exp(b_after_mp)*(rnew[:, 0] + r1_mp)**a_after_mp)
 #     fig, axes = plt.subplots(1, 1)
 #     axes.scatter(r[:, 0], R)
 #     axes.plot(rnew[:, 0], only_gp, color="C1")
+#     axes.plot(rnew[:, 0], model, color="red")
 #     axes.fill_between(rnew[:, 0], only_gp - np.sqrt(var), only_gp + np.sqrt(var), color="C1", alpha=0.5)
 #     plt.axhline(0.0)
-#     axes.plot(rnew[:, 0], np.exp(b_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_mp, color="red")
 #     axes.set_xlabel("r, mas")
 #     axes.set_ylabel("R, mas")
 #     plt.show()
+
+
+########################################################################################################################
+
+
+with pm.Model() as model:
+    a = pm.Normal("a", mu=1., sigma=0.25)
+    b = pm.Normal("b", mu=0., sigma=1.0)
+    r0 = pm.Normal("r0", mu=-2., sigma=1.0)
+    mean = MyMean(a, b, r0)
+
+    eta = pm.HalfNormal("eta", sigma=0.02, initval=0.02)
+    logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
+    sigma = pm.HalfCauchy("sigma", beta=0.1, initval=0.1)
+    # l = 1.0
+    l = pm.HalfCauchy("l", beta=0.1, initval=0.1)
+    # cov = eta**2 * pm.gp.cov.ExpQuad(1, l)
+    cov = eta**2 * pm.gp.cov.RatQuad(1, pt.exp(logalpha), l)
+
+
+    # c = pm.Deterministic("c", -pt.exp(r0))
+    # offset = pm.HalfCauchy("offset", beta=0.1, initval=0.1)
+    # cov_poly = pm.gp.cov.Polynomial(1, c=c, d=a, offset=offset)
+    #
+    # # Multiplication
+    # cov_total = cov * cov_poly
+    #
+    # # Scaling covariance
+    # cov_total = pm.gp.cov.ScaledCov(1, scaling_func=scaling_function, args=(a, b, r0), cov_func=cov)
+    # # Add white noise to stabilise
+    # cov_total += pm.gp.cov.WhiteNoise(1e-5)
+
+    gp = pm.gp.Marginal(mean_func=mean, cov_func=cov)
+    y_ = gp.marginal_likelihood("y", X=r, y=R, sigma=sigma)
+
+    mp = pm.find_MAP(include_transformed=True)
+
+    print(sorted([name + ":" + str(mp[name]) for name in mp.keys() if not name.endswith("_")]))
+
+
+    a_mp = float(mp['a'])
+    b_mp = float(mp['b'])
+    r0_mp = float(mp['r0'])
+
+    mu, var = gp.predict(rnew, point=mp, diag=True)
+    only_gp = mu - np.exp(b_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_mp
+
+    with plt.style.context(['science', 'high-contrast']):
+        fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
+        axes.scatter(r[:, 0], R)
+        axes.plot(rnew[:, 0], only_gp, color="C1")
+        axes.fill_between(rnew[:, 0], only_gp - np.sqrt(var), only_gp + np.sqrt(var), color="C1", alpha=0.5)
+        plt.axhline(0.0)
+        axes.plot(rnew[:, 0], np.exp(b_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_mp, color="red")
+        axes.set_xlabel("r, mas")
+        axes.set_ylabel("R, mas")
+        plt.show()
