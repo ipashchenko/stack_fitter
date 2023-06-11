@@ -169,3 +169,118 @@ def gp_dist_plot(samples, x, ax, palette, fill_alpha=0.1, samples_alpha=0.1, plo
         ax.plot(x, samples[:, idx], color=cmap(0.9), lw=1, alpha=samples_alpha, **samples_kwargs)
 
     return ax
+
+
+def profile_boccardi(z, z_br, k_b, k_a, R_br, h):
+    return R_br*2**((k_b - k_a)/h)*(z/z_br)**k_b*(1 + (z/z_br)**h)**((k_a - k_b)/h)
+
+
+def sigmoid(x, x_0, alpha):
+    return 1./(1. + np.exp(-(x - x_0)/alpha))
+
+def profile_sigmoid(z, z_0, z_1, z_br, k_b, k_a, b_b, dz):
+    f1 = b_b*(z + z_0)**k_b
+    b_a = b_b*(z_br + z_0)**k_b/(z_br + z_1)**k_a
+    f2 = b_a*(z + z_1)**k_a
+    sigma = sigmoid(z, z_br, dz)
+    return (1 - sigma)*f1 + sigma*f2
+
+
+def profile_teared_sigmoid(z, z_0, z_1, z_br, k_b, k_a, b_b, dz):
+    b_a = b_b*(z_br + z_0)**k_b/(z_br + z_1)**k_a
+    sigma = sigmoid(z, z_br, dz)
+    f1 = (1-sigma)*b_b*(z + z_0)**k_b
+    f2 = sigma*b_a*(z + z_1)**k_a
+    before = z < z_br
+    result = f2
+    result[before] = f1[before]
+    return result
+
+
+def profile_1(z, z_0, z_1, z_br, k_b, k_a, b_b, dz):
+
+    def func(z, b, shift, k):
+        return b*(z + shift)**k
+
+    def func_der(z, b, shift, k):
+        return k*b*(z + shift)**(k - 1)
+
+    f1 = func(z, b_b, z_0, k_b)
+    b_a = b_b*(z_br + z_0)**k_b/(z_br + z_1)**k_a
+    f2 = func(z, b_a, z_1, k_a)
+
+    z_before = z_br - 0.5*dz
+    z_after = z_br + 0.5*dz
+    C1 = func(z_before, b_b, z_0, k_b)
+    C2 = func(z_after, b_a, z_1, k_a)
+    C3 = func_der(z_before, b_b, z_0, k_b)
+    C4 = func_der(z_after, b_a, z_1, k_a)
+    b = np.array([C1, C2, C3, C4])
+
+    A = np.array([[z_before**3, z_before**2, z_before, 1],
+                  [z_after**3, z_after**2, z_after, 1],
+                  [3*z_before**2, 2*z_before, 1, 0],
+                  [3*z_after**2, 2*z_after, 1, 0]])
+
+    coeffs = np.linalg.solve(A, b)
+    print(coeffs)
+    poly = np.polynomial.polynomial.polyval(z, coeffs[::-1])
+
+    before = z < z_before
+    after = z > z_after
+    between = np.logical_and(z > z_before, z <= z_after)
+    result = f2
+    result[before] = f1[before]
+    result[between] = poly[between]
+
+    # fig, axes = plt.subplots(1, 1)
+    # axes.axvline(z_br, color="k")
+    # axes.plot(z[before], result[before])
+    # axes.plot(z[between], result[between])
+    # axes.plot(z[after], result[after])
+    # plt.show()
+
+    return result
+
+
+def profile_rigorous(z, z_0, z_1, z_br, k_b, k_a, b_b):
+    f1 = b_b*(z + z_0)**k_b
+    b_a = b_b*(z_br + z_0)**k_b/(z_br + z_1)**k_a
+    f2 = b_a*(z + z_1)**k_a
+    before = z < z_br
+    result = f2
+    result[before] = f1[before]
+    return result
+
+
+if __name__ == "__main__":
+    import matplotlib
+    matplotlib.use("TkAgg")
+    z = np.linspace(0.5, 30, 10000)
+    k_b = 1.0
+    k_a = 0.25
+    z_br = 7.0
+    R_br = 3.0
+    z_0 = -0.15
+    z_1 = 1.
+    b_b = 0.5
+    h = 100
+    dz = 0.5
+    fig, axes = plt.subplots(1, 1, figsize=(6.4*2, 4.8*2))
+    # plt.plot(z, profile_boccardi(z, z_br, k_b, k_a, R_br, h))
+    R_true = profile_rigorous(z, z_0, z_1, z_br, k_b, k_a, b_b)
+    R_sigmoid = profile_sigmoid(z, z_0, z_1, z_br, k_b, k_a, b_b, dz)
+    R_poly = profile_1(z, z_0, z_1, z_br, k_b, k_a, b_b, dz)
+    # R_teared_sigmoid = profile_teared_sigmoid(z, z_0, z_1, z_br, k_b, k_a, b_b, dz)
+    axes.plot(z, R_true, lw=2, color="C0", label="True")
+    axes.plot(z, R_sigmoid, lw=2, color="C1", label="Sigmoid")
+    axes.plot(z, R_poly, lw=2, color="C2", label="poly")
+    # axes.plot(z, R_teared_sigmoid, lw=2, color="C2", label="T.Sigmoid")
+    axes.plot(z, R_sigmoid-R_true, label=r"$\Delta$ Sigmoid", ls="--", color="C1")
+    axes.plot(z, R_poly-R_true, label=r"$\Delta$ poly", ls="--", color="C2")
+    # axes.plot(z, R_teared_sigmoid-R_true, label=r"$\Delta$ T.Sigmoid", ls="--", color="C2")
+    axes.axhline(0.0, color="k")
+    axes.set_xlim([z_br - 4., z_br + 4.])
+    plt.legend()
+    plt.show()
+
