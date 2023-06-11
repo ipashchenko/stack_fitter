@@ -2,14 +2,17 @@ import os
 import sys
 import matplotlib
 matplotlib.use("TkAgg")
+import scienceplots
 import matplotlib.pyplot as plt
+# For tics and line widths. Re-write colors and figure size later.
+plt.style.use('science')
 import numpy as np
 from scipy.stats import scoreatpercentile
 sys.path.insert(0, '/home/ilya/github/dnest4postprocessing')
 from postprocess import postprocess
 from gp_utils import make_GP_SE_predictions, make_GP_RQ_predictions, gp_dist_plot
 
-label_size = 16
+label_size = 18
 matplotlib.rcParams['xtick.labelsize'] = label_size
 matplotlib.rcParams['ytick.labelsize'] = label_size
 matplotlib.rcParams['axes.titlesize'] = label_size
@@ -20,10 +23,11 @@ matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
 
-changepoint = True
+changepoint = False
 GP = True
 # gp_scale = 1.0
 n_pred = 1000
+# n_pred = 300
 n_each = 2
 alpha = 0.05
 small_font = 12
@@ -46,8 +50,8 @@ r, R = np.loadtxt(data_file, unpack=True)
 r_grid = np.linspace(np.min(r), np.max(r), 1000)
 r = r[::n_each]
 R = R[::n_each]
-# fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
-fig, axes = plt.subplots(1, 1)#, figsize=(9.6, 7.2))
+fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
+# fig, axes = plt.subplots(1, 1)#, figsize=(9.6, 7.2))
 axes.set_xlabel("Separation (mas)")
 axes.set_ylabel(r"Width (mas)")
 axes.scatter(r, R, zorder=5, color="black", s=3)
@@ -80,7 +84,8 @@ if not changepoint:
         b = b_samples[i]
         r0 = np.exp(r0_samples[i])
         mu_model = np.exp(b)*(r + r0)**a
-        mu_model_grid = np.exp(b)*(r + r0)**a
+        mu_model_grid = np.exp(b)*(r_grid + r0)**a
+        model_grid_samples.append(mu_model_grid)
         if GP:
             frac_error = np.exp(frac_error_samples[i])
             abs_error = np.exp(abs_error_samples[i])
@@ -94,9 +99,9 @@ if not changepoint:
             # mu_pred, cov_pred = make_GP_SElin_predictions(r_grid, r, R - mu_model, amp_gp, gp_scale, 1e-05, 1, -r0, sigma)
             R_pred = np.random.multivariate_normal(mu_pred, cov_pred)
             GP_only_grid_samples.append(R_pred)
-            axes.plot(r_grid, R_pred, color="C2", alpha=alpha, zorder=4)
-        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a + R_pred, color="C1", alpha=alpha, zorder=3)
-        axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="C0", alpha=alpha, zorder=3)
+            # axes.plot(r_grid, R_pred, color="C2", alpha=alpha, zorder=4)
+        # axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a + R_pred, color="C1", alpha=alpha, zorder=3)
+        # axes.plot(r_grid, np.exp(b)*(r_grid + r0)**a, color="C0", alpha=alpha, zorder=3)
 
     model_grid_samples = np.atleast_2d(model_grid_samples)
     axes = gp_dist_plot(model_grid_samples, r_grid, axes, "Reds")
@@ -189,12 +194,12 @@ if logZ is not None:
 
 if changepoint:
     if GP:
-        fig_name = "fitted_gp_2.png"
+        fig_name = "fitted_gp_2_science.png"
     else:
         fig_name = "fitted_2.png"
 else:
     if GP:
-        fig_name = "fitted_gp_1.png"
+        fig_name = "fitted_gp_1_science.png"
     else:
         fig_name = "fitted_1.png"
 
