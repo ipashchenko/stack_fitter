@@ -4,13 +4,19 @@ import matplotlib
 matplotlib.use("TkAgg")
 import scienceplots
 import matplotlib.pyplot as plt
-# For tics and line widths. Re-write colors and figure size later.
-plt.style.use('science')
+from cycler import cycler
 import numpy as np
 from scipy.stats import scoreatpercentile
 sys.path.insert(0, '/home/ilya/github/dnest4postprocessing')
 from postprocess import postprocess
 from gp_utils import make_GP_SE_predictions, make_GP_RQ_predictions, gp_dist_plot
+
+# For tics and line widths. Re-write colors and figure size later.
+plt.style.use('science')
+# Default color scheme
+matplotlib.rcParams['axes.prop_cycle'] = cycler('color', ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+# Default figure size
+matplotlib.rcParams['figure.figsize'] = (6.4, 4.8)
 
 label_size = 18
 matplotlib.rcParams['xtick.labelsize'] = label_size
@@ -23,7 +29,7 @@ matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
 
-changepoint = False
+changepoint = True
 GP = True
 # gp_scale = 1.0
 n_pred = 1000
@@ -194,12 +200,12 @@ if logZ is not None:
 
 if changepoint:
     if GP:
-        fig_name = "fitted_gp_2_science.png"
+        fig_name = "fitted_gp_2_science_.png"
     else:
         fig_name = "fitted_2.png"
 else:
     if GP:
-        fig_name = "fitted_gp_1_science.png"
+        fig_name = "fitted_gp_1_science_.png"
     else:
         fig_name = "fitted_1.png"
 

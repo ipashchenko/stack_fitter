@@ -1,11 +1,18 @@
 import sys
-
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
 from astropy import units as u, constants as const, cosmology
 from scipy.stats import median_abs_deviation, scoreatpercentile
 import matplotlib.pyplot as plt
+from cycler import cycler
+import scienceplots
+# For tics and line widths. Re-write colors and figure size later.
+plt.style.use('science')
+# Default color scheme
+matplotlib.rcParams['axes.prop_cycle'] = cycler('color', ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+# Default figure size
+matplotlib.rcParams['figure.figsize'] = (6.4, 4.8)
 
 label_size = 18
 matplotlib.rcParams['xtick.labelsize'] = label_size
@@ -244,8 +251,9 @@ if __name__ == "__main__":
 
     from labellines import labelLines
     import matplotlib.ticker as ticker
-    sigmas = np.logspace(0, 2.302, 100)
-    fig, axes = plt.subplots(1, 1)
+    sigmas = np.logspace(0, 2.4, 1000)
+    fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
+    axes.set_xlim([1., 10**2.4])
     # labels = (r"100$r_{\rm g}$", r"Hada+2016", r"300$r_{\rm g}$", r"This work", r"1000$r_{\rm g}$")
     # labels = (r"100$r_{\rm g}$", r"300$r_{\rm g}$", r"1000$r_{\rm g}$")
     # for i, r1_to_rg in enumerate((100, 157, 300, 654, 1000)):
@@ -265,10 +273,7 @@ if __name__ == "__main__":
     axes.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
     axes.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
     plt.legend(loc="upper left")
-    fig.savefig("r1_HST-1_constrains.pdf", bbox_inches="tight", dpi=300)
-
-
-
+    fig.savefig("r1_HST-1_constrains_science.pdf", bbox_inches="tight", dpi=300)
 
 
 
@@ -301,25 +306,26 @@ if __name__ == "__main__":
     axes.axvspan(low5_sigmas, up5_sigmas, color="C1", alpha=0.25, label="HST-1 speeds")
     axes.axvspan(low32_sigmas, up32_sigmas, color="C1", alpha=0.25)
     plt.legend(loc="upper left", prop={"size":12})
-    fig.savefig("r1_HST-1_constrains_both.pdf", bbox_inches="tight", dpi=300)
+    fig.savefig("r1_HST-1_constrains_both_science.pdf", bbox_inches="tight", dpi=300)
 
     plt.show()
 
+    # sys.exit(0)
 
 
-
-    sys.exit(0)
     from labellines import labelLines
     import matplotlib.ticker as ticker
     gamma_in = 1.1
-    sigmas = np.logspace(0, 2.302, 100)
-    fig, axes = plt.subplots(1, 1)
+    # sigmas = np.logspace(0, 2.302, 100)
+    fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
+    axes.set_xlim([1., 10**2.4])
     # labels = (r"100$r_{\rm g}$", r"Hada+2016", r"300$r_{\rm g}$", r"This work", r"1000$r_{\rm g}$")
     labels = (r"100$r_{\rm g}$", r"300$r_{\rm g}$", r"1000$r_{\rm g}$")
+    colors = ("C0", "C1", "C2")
     # for i, r1_to_rg in enumerate((100, 157, 300, 654, 1000)):
     for i, r1_to_rg in enumerate((100, 300, 1000)):
         a = get_a_from_r1(r1_to_rg, gamma_in, sigmas)
-        axes.plot(sigmas, a, label=r"{}".format(labels[i]), lw=3)
+        axes.plot(sigmas, a, label=r"{}".format(labels[i]), lw=3, color=colors[i])
     labelLines(axes.get_lines(), zorder=2.5, fontsize=14, backgroundcolor="none")
     axes.set_xlabel(r"$\sigma_{\rm M}$")
     axes.set_ylabel(r"$a$")
@@ -327,5 +333,5 @@ if __name__ == "__main__":
     axes.set_yscale("log", base=10)
     axes.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
     axes.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
-    # fig.savefig("r1_constrain_analytical.pdf", bbox_inches="tight", dpi=300)
+    fig.savefig("r1_constrain_analytical_science.pdf", bbox_inches="tight", dpi=300)
     plt.show()
