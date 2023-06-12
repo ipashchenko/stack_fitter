@@ -31,7 +31,7 @@ void ModelGPCP::from_prior(DNest4::RNG &rng)
 	std::cout << "log_dr = " << log_dr << "\n";
 
 	DNest4::Gaussian gaussian(-2., 0.2);
-	DNest4::TruncatedCauchy halfcauchy(0.0, 0.1);
+	DNest4::TruncatedCauchy halfcauchy(0.0, 0.1, 0.0);
 	DNest4::Uniform uniform(-5., 5.0);
 	b_before = 0.0 + 1.0*rng.randn();
 	a_before = 1.0 + 0.5*rng.randn();
@@ -218,7 +218,7 @@ double ModelGPCP::perturb(DNest4::RNG &rng)
 	// Scale
 	else if(r > 0.7 && r <= 0.8)
 	{
-		DNest4::TruncatedCauchy halfcauchy(0.0, 0.1);
+		DNest4::TruncatedCauchy halfcauchy(0.0, 0.1, 0.0);
 		logH += halfcauchy.perturb(gp_scale, rng);
 		// No need to re-calculate model. Just calculate loglike.
 	}

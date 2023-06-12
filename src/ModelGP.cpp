@@ -19,7 +19,7 @@ void ModelGP::from_prior(DNest4::RNG &rng)
 	VectorXd r = Data::get_instance().get_r();
 
 	DNest4::Gaussian gaussian(-2., 0.2);
-	DNest4::TruncatedCauchy halfcauchy(0.0, 0.1);
+	DNest4::TruncatedCauchy halfcauchy(0.0, 0.1, 0.0);
 	DNest4::Uniform uniform(-5., 5.0);
 	b = 0.0 + 1.0*rng.randn();
 	a = 1.0 + 0.5*rng.randn();
@@ -131,7 +131,7 @@ double ModelGP::perturb(DNest4::RNG &rng)
 	// Scale
 	else if(r > 0.525 && r <= 0.7)
 	{
-		DNest4::TruncatedCauchy halfcauchy(0.0, 0.1);
+		DNest4::TruncatedCauchy halfcauchy(0.0, 0.1, 0.0);
 		logH += halfcauchy.perturb(gp_scale, rng);
 		// No need to re-calculate model. Just calculate loglike.
 	}
