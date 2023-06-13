@@ -8,7 +8,7 @@ using std::pow;
 
 
 ModelGPCP::ModelGPCP()
-: a_before(0.0), a_after(0.0), b_before(0.0), r0(0.0), r1(0.0), changepoint(0.0),frac_log_error_scale(0.0),
+: a_before(0.0), a_after(0.0), b_before(0.0), r0(0.0), r1(0.0), changepoint(0.0), d_changepoint(1.0), frac_log_error_scale(0.0),
   abs_log_error_scale(0.0), log_dr(0.0), log_rmin(0.0), log_rmax(0.0), gp_logamp(0.0), gp_scale(1.0), gp_logalpha(0.0)
 {
 	VectorXd r = Data::get_instance().get_r();
@@ -246,16 +246,17 @@ void ModelGPCP::calculate_prediction()
 	VectorXd r = Data::get_instance().get_r();
 //	mu = exp(b)*pow(r.array() + exp(r0), a);
 	
+	mu = profile_cp(r, exp(r0), r1, exp(changepoint), a_before, a_after, exp(b_before), d_changepoint);
 	
-	double r_cp = exp(changepoint);
-	std::vector<Eigen::Index> before = find_less(r, r_cp);
-	std::vector<Eigen::Index> after = find_ge(r, r_cp);
-	
-	// Continuity
-	double b_after = b_before + a_before*log(r_cp + exp(r0)) - a_after*log(r_cp + r1);
-	
-	mu(before) = exp(b_before) * pow(r(before).array() + exp(r0), a_before);
-	mu(after) = exp(b_after) * pow(r(after).array() + r1, a_after);
+//	double r_cp = exp(changepoint);
+//	std::vector<Eigen::Index> before = find_less(r, r_cp);
+//	std::vector<Eigen::Index> after = find_ge(r, r_cp);
+//
+//	// Continuity
+//	double b_after = b_before + a_before*log(r_cp + exp(r0)) - a_after*log(r_cp + r1);
+//
+//	mu(before) = exp(b_before) * pow(r(before).array() + exp(r0), a_before);
+//	mu(after) = exp(b_after) * pow(r(after).array() + r1, a_after);
 	
 }
 

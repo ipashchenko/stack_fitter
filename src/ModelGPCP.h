@@ -18,6 +18,7 @@ class ModelGPCP
 		double r0;
 		double r1;
 		double changepoint;
+		double d_changepoint;
 		double frac_log_error_scale;
 		double abs_log_error_scale;
 		double log_dr;

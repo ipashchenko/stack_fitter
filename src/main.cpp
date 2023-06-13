@@ -8,9 +8,10 @@
 #include "kernels.h"
 #include "omp.h"
 //#include "armadillo"
-//#include <Eigen/Dense>
+#include <Eigen/Dense>
+#include<fstream>
 
-//using Eigen::VectorXd;
+using Eigen::VectorXd;
 //using Eigen::MatrixXd;
 
 using namespace DNest4;
@@ -26,6 +27,31 @@ int main(int argc, char** argv)
 	Sampler<ModelGPCP> sampler = setup<ModelGPCP>(argc, argv);
 	sampler.run();
 
+	return 0;
+}
+
+
+int main0()
+{
+	VectorXd z = VectorXd::LinSpaced(1000, 0.5, 30);
+	double k_b = 1.0;
+	double k_a = 0.25;
+	double z_br = 7.0;
+	double z_0 = -0.15;
+	double z_1 = 1.;
+	double b_b = 0.5;
+	double dz = 0.5;
+	
+	VectorXd result = profile_cp(z, z_0, z_1, z_br,k_b, k_a, b_b, dz);
+	
+	const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+	std::ofstream file("/home/ilya/github/stack_fitter/result.txt");
+	if (file.is_open())
+	{
+		std::cout << "Saving to file...\n";
+		file << result.format(CSVFormat);
+		file.close();
+	}
 	return 0;
 }
 

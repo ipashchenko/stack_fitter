@@ -256,7 +256,7 @@ def profile_rigorous(z, z_0, z_1, z_br, k_b, k_a, b_b):
 if __name__ == "__main__":
     import matplotlib
     matplotlib.use("TkAgg")
-    z = np.linspace(0.5, 30, 10000)
+    z = np.linspace(0.5, 30, 1000)
     k_b = 1.0
     k_a = 0.25
     z_br = 7.0
