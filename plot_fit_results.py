@@ -31,13 +31,15 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 changepoint = True
 GP = True
+artificial = False 
 # gp_scale = 1.0
 n_pred = 1000
 # n_pred = 300
-n_each = 2
+n_each = 1
 alpha = 0.05
 small_font = 12
-data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
+# data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
+data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
 save_dir = "/home/ilya/github/stack_fitter"
 run_dir = "/home/ilya/github/stack_fitter/Release"
 fitted_file = "/home/ilya/github/stack_fitter/Release/posterior_sample.txt"
@@ -61,7 +63,7 @@ fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
 axes.set_xlabel("Separation (mas)")
 axes.set_ylabel(r"Width (mas)")
 axes.scatter(r, R, zorder=5, color="black", s=3)
-axes.set_ylim([-2, 5])
+axes.set_ylim([-1, 7])
 
 if n_pred > n_post:
     n_pred = n_post
@@ -200,15 +202,17 @@ if logZ is not None:
 
 if changepoint:
     if GP:
-        fig_name = "fitted_gp_2_science_.png"
+        fig_name = "real_fitted_gp_2_science_.png"
     else:
         fig_name = "fitted_2.png"
 else:
     if GP:
-        fig_name = "fitted_gp_1_science_.png"
+        fig_name = "real_fitted_gp_1_science_.png"
     else:
         fig_name = "fitted_1.png"
 
+if artificial:
+    fig_name = "artificial_" + fig_name
 
 fig.savefig(fig_name, bbox_inches="tight", dpi=300)
 plt.show()

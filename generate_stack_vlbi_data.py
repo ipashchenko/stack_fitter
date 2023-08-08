@@ -19,21 +19,35 @@ from jet_image import JetImage, TwinJetImage
 freq_ghz = 15.4
 # Directory to save files
 save_dir = "/home/ilya/github/stack_fitter/simulations"
+n_epochs = None
 # Some template UVFITS with full polarization. Its uv-coverage and noise will be used while creating fake data
 # template_uvfits = "/home/ilya/github/bk_transfer/uvfits/1458+718.u.2006_09_06.uvf"
 template_uvfits_files = glob.glob(os.path.join("/home/ilya/Downloads/M87_uvf/", "*uvf"))
+if n_epochs is None:
+    n_epochs = len(template_uvfits_files)
+save_stack_file = f"stack_i_{n_epochs}_epochs_inclined.txt"
+print(f"# epochs = {n_epochs}")
 # Multiplicative factor for noise added to model visibilities.
 noise_scale_factor = 1.0
 # Used in CLEAN
 mapsize = (1024, 0.1)
 # Common beam
-common_beam = (1.35, 1.35, 0)
+# common_beam = (1.35, 1.35, 0)
+# MOJAVE old stack
+common_beam = (0.85, 0.85, 0)
+# For artificial jet aligned with negative RA axis
+# blc = (435, 416)
+# trc = (700, 548)
+# For artificial jet as in real M87
+blc = (435, 416)
+trc = (700, 600)
 model_jet_image = "/home/ilya/github/stack_fitter/simulations/jet_image_i_15.4_2ridges.txt"
 model_cjet_image = "/home/ilya/github/stack_fitter/simulations/cjet_image_i_15.4_2ridges.txt"
+
 # Make jet along RA
-rot_angle_deg = -90.
+# rot_angle_deg = -90.
 # Real M87
-# rot_angle_deg = -107.
+rot_angle_deg = -107.
 
 # C++ code run parameters
 z = 0.00436
@@ -43,9 +57,6 @@ lg_pixel_size_mas_min = -1.5
 lg_pixel_size_mas_max = -1.5
 resolutions = np.logspace(lg_pixel_size_mas_min, lg_pixel_size_mas_max, n_along)
 print("Model jet extends up to {:.1f} mas!".format(np.sum(resolutions)))
-##############################################
-# No need to change anything below this line #
-##############################################
 
 # Plot only jet emission and do not plot counter-jet?
 jet_only = False
@@ -57,7 +68,7 @@ images_u = list()
 images_pang = list()
 stokes = "I"
 
-for i in range(5):
+for i in range(n_epochs):
     # -107 for M87; -90 for making it along RA axis.
     uvfits = template_uvfits_files[i]
     print("File : ", uvfits)
@@ -84,7 +95,9 @@ for i in range(5):
     js = TwinJetImage(jm, cjm)
 
     uvdata.zero_data()
-    rotated_uvdata = uvdata.create_uvfits_with_rotated_uv(np.deg2rad(17), os.path.join(save_dir, "template.uvf"), overwrite=True)
+    # Rotate uv-coverage for artificial data where the jet is along negative RA axis.
+    # rotated_uvdata = uvdata.create_uvfits_with_rotated_uv(np.deg2rad(17), os.path.join(save_dir, "template.uvf"), overwrite=True)
+    rotated_uvdata = uvdata
     if jet_only:
         rotated_uvdata.substitute([jm])
     else:
@@ -110,7 +123,7 @@ for i in range(5):
                  mapsize_clean=mapsize, path_to_script=path_to_script,
                  show_difmap_output=True,
                  # text_box=text_boxes[freq],
-                 dfm_model=os.path.join(save_dir, "model_cc_i.mdl"),
+                 save_dfm_model=os.path.join(save_dir, "model_cc_i.mdl"),
                  beam_restore=common_beam)
 
     ccimage = create_clean_image_from_fits_file(os.path.join(save_dir, "model_cc_i.fits"))
@@ -133,7 +146,7 @@ for i in range(5):
 
 
 stack_i = np.mean(images_i, axis=0)
-np.savetxt(os.path.join(save_dir, "stack_i.txt"), stack_i)
+np.savetxt(os.path.join(save_dir, save_stack_file), stack_i)
 std = find_image_std(stack_i, beam_npixels=npixels_beam)
 blc, trc = find_bbox(stack_i, level=4*std, min_maxintensity_mjyperbeam=30*std,
                      min_area_pix=20*npixels_beam, delta=10)
@@ -143,4 +156,4 @@ fig = iplot(stack_i, x=ccimage.x, y=ccimage.y,
             min_abs_level=4*std, blc=blc, trc=trc, beam=(beam[0], beam[1], np.rad2deg(beam[2])), close=True, show_beam=True, show=False,
             contour_color='gray', contour_linewidth=0.25)
 axes = fig.get_axes()[0]
-fig.savefig(os.path.join(save_dir, "observed_stack_i.png"), dpi=600, bbox_inches="tight")
+fig.savefig(os.path.join(save_dir, "observed_stack_i_inclined.png"), dpi=600, bbox_inches="tight")
