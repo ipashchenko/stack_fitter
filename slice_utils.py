@@ -22,7 +22,7 @@ sys.path.insert(0, '/home/ilya/github/ve/vlbi_errors')
 from spydiff import CLEAN_difmap, CCFITS_to_difmap, convert_difmap_model_file_to_CCFITS, find_image_std, find_bbox
 from image import plot as iplot
 from from_fits import create_clean_image_from_fits_file, create_image_from_fits_file
-matplotlib.use("TkAgg")
+matplotlib.use("Agg")
 
 # For tics and line widths. Re-write colors and figure size later.
 plt.style.use('science')
