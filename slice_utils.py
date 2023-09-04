@@ -115,7 +115,7 @@ def get_slices(image, pixsize_mas, beam_size_mas, z_obs_min_mas=0.5, z_obs_max_m
         else:
             min_amp_coeff = 0.05
 
-        width_pixels, x0 = fit_single_slice_Gauss2(x, y, halfwidth=halfwidth, beam_size_pixels=beam_size_mas/pixsize_mas, std=std, plot=plot,
+        width_pixels, x0 = fit_single_slice_Gauss4(x, y, halfwidth=halfwidth, beam_size_pixels=beam_size_mas/pixsize_mas, std=std, plot=plot,
                                                    use=use, save_dir=save_dir, z_obs_mas=z_obs_min_mas + delta*i*pixsize_mas,
                                                    min_amp_coeff=min_amp_coeff, x0=x0)
         slices.append(y)
@@ -338,7 +338,7 @@ def fit_single_slice_Gauss4(x, y, **kwargs):
     g = g1 + g2 + g3 + g4
 
 
-    if kwargs["use_dlib"]:
+    if kwargs["use"] == "dlib":
         print("Using DLIB")
         lower_bounds = [100*kwargs["std"], 40., beam_size_pixels_stddev,
                         kwargs["std"], 40., beam_size_pixels_stddev,
@@ -386,17 +386,84 @@ def fit_single_slice_Gauss4(x, y, **kwargs):
         g[3].mean = mean3
         g[3].stddev = sigma3
 
+        x0 = p
+
+    elif kwargs["use"] == "bobyqa":
+        # lower_bounds = [0.05*np.ma.max(y), 10., 0.25*beam_size_pixels_stddev,
+        #                 0.05*np.ma.max(y), kwargs["halfwidth"]-1, 0.25*beam_size_pixels_stddev]
+        # upper_bounds = [1., kwargs["halfwidth"]+1, 3*beam_size_pixels_stddev,
+        #                 1., 2*kwargs["halfwidth"]-10, 3*beam_size_pixels_stddev]
+
+        lower_bounds = [kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev]
+        upper_bounds = [10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev]
+
+        def minfunc(p):
+            amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2, amp3, mean3, sigma3 = p
+            g[0].amplitude = amp0
+            g[0].mean = mean0
+            g[0].stddev = sigma0
+            g[1].amplitude = amp1
+            g[1].mean = mean1
+            g[1].stddev = sigma1
+            g[2].amplitude = amp2
+            g[2].mean = mean2
+            g[2].stddev = sigma2
+            g[3].amplitude = amp3
+            g[3].mean = mean3
+            g[3].stddev = sigma3
+            result = np.sum((y - g(x))**2)
+
+            return result
+
+        x0 = kwargs["x0"]
+        soln = pybobyqa.solve(minfunc, x0, maxfun=1000, bounds=(lower_bounds, upper_bounds),
+                              seek_global_minimum=True, print_progress=False, scaling_within_bounds=True,
+                              rhoend=1e-8)
+
+        p = soln.x
+        print("after :",  p)
+        amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2, amp3, mean3, sigma3 = p
+        g[0].amplitude = amp0
+        g[0].mean = mean0
+        g[0].stddev = sigma0
+        g[1].amplitude = amp1
+        g[1].mean = mean1
+        g[1].stddev = sigma1
+        g[2].amplitude = amp2
+        g[2].mean = mean2
+        g[2].stddev = sigma2
+        g[3].amplitude = amp3
+        g[3].mean = mean3
+        g[3].stddev = sigma3
+
+        x0 = p
+
     else:
         print("Using LevMarLSQFitter")
         fit_g = fitting.LevMarLSQFitter()
         g = fit_g(g, x, y, weights=1/std, maxiter=10000, acc=1e-10, estimate_jacobian=False)
+        x0 = None
 
     # Find maximum of the fitted function
     from scipy.optimize import fmin, minimize_scalar
     max_x = fmin(lambda x: -g(x), np.argmax(y))[0]
     max_val = g(max_x)
+    x_4_med = x[g(x) > 0.1*max_val]
+    med_val = np.median(g(x_4_med))
     print("Maximum x ", max_x)
     print("Maximum value = ", max_val)
+    print("Median value = ", med_val)
+
+    # Value at which to calculate width ========================================
+    cut_value = 0.1*max_val
+    # cut_value = 0.25*med_val
+    # ==========================================================================
 
     # Find points where g = 0.25 g_max
     # solution_1 = minimize_scalar(lambda x: np.abs(g(x)-0.25*max_val), bounds=[0,max_x], method='Bounded')
@@ -405,13 +472,13 @@ def fit_single_slice_Gauss4(x, y, **kwargs):
 
     # First find upper bound
     lower_bounds = [0]
-    upper_bounds = [np.where((y - 0.1*max_val) > 0)[0][0] + 5]
+    upper_bounds = [np.where((y - cut_value) > 0)[0][0] + 5]
     n_fun_eval = 200
-    delta_bound, _ = dlib.find_min_global(lambda x: np.abs(g(x)-0.1*max_val), lower_bounds, upper_bounds, n_fun_eval)
+    delta_bound, _ = dlib.find_min_global(lambda x: np.abs(g(x)-cut_value), lower_bounds, upper_bounds, n_fun_eval)
     solution_1 = delta_bound[0]
     lower_bounds = [max_x]
-    upper_bounds = [np.where((y - 0.1*max_val) > 0)[0][-1] + 5]
-    delta_bound, _ = dlib.find_min_global(lambda x: np.abs(g(x)-0.1*max_val), lower_bounds, upper_bounds, n_fun_eval)
+    upper_bounds = [np.where((y - cut_value) > 0)[0][-1] + 5]
+    delta_bound, _ = dlib.find_min_global(lambda x: np.abs(g(x)-cut_value), lower_bounds, upper_bounds, n_fun_eval)
     solution_2 = delta_bound[0]
 
     print("FWQM : ", solution_1, solution_2)
@@ -424,7 +491,7 @@ def fit_single_slice_Gauss4(x, y, **kwargs):
         axes.plot(x, g[2](x), label="3")
         axes.plot(x, g[3](x), label="4")
         axes.plot(x, g(x), label="all")
-        axes.axhline(0.1*max_val, lw=1, color="k")
+        axes.axhline(cut_value, lw=1, color="k")
         axes.axhline(max_val, lw=1, ls="-.", color="k")
         axes.axhline(std, lw=1, ls="--", color="k", label=r"$\sigma$")
         axes.axvline(solution_1, lw=1, color="k")
@@ -434,8 +501,8 @@ def fit_single_slice_Gauss4(x, y, **kwargs):
         # plt.show()
         plt.close()
 
+    return solution_2 - solution_1, x0
 
-    return solution_2 - solution_1
 
 def fit_profile(pos_to_plot, widths_to_plot, save_prefix="profile_fit", save_dir=None, fig=None, fix_r0=False):
     if save_dir is None:
@@ -568,8 +635,8 @@ def construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize, comm
 if __name__ == "__main__":
 
 
-    # save_dir = "/home/ilya/github/stack_fitter/real"
-    save_dir = "/home/ilya/github/stack_fitter/simulations"
+    save_dir = "/home/ilya/github/stack_fitter/real"
+    # save_dir = "/home/ilya/github/stack_fitter/simulations"
 
     # # uvfits_files_dir = "/home/ilya/Downloads/M87_uvf"
     # # epochs = ("2000_12_30",
@@ -588,18 +655,28 @@ if __name__ == "__main__":
     # # sys.exit(0)
     #
 
-    n_epochs = 45
+    # n_epochs = 45
     # # stack_file = f"stack_i_{n_epochs}_epochs.txt"
-    stack_file = f"stack_i_{n_epochs}_epochs_inclined.txt"
-    image = np.loadtxt(os.path.join(save_dir, stack_file))
+    # stack_file = f"stack_i_{n_epochs}_epochs_inclined.txt"
+    # image = np.loadtxt(os.path.join(save_dir, stack_file))
 
-    # # image = pf.getdata("/home/ilya/github/stack_fitter/simulations/1228+126.u.stacked.i.fits.gz").squeeze()
-    # zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=0.85, save_dir=save_dir, dlib_max=0.6,
-    #                                        z_obs_min_mas=0.5, z_obs_max_mas=10., rotation_angle_deg=17.0, plot=True)
+    image = pf.getdata("/home/ilya/github/stack_fitter/real/1228+126.u.stacked.i.fits.gz").squeeze()
+    zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=0.85, save_dir=save_dir, dlib_max=0.6,
+                                           z_obs_min_mas=0.5, z_obs_max_mas=20., rotation_angle_deg=17.0, plot=True)
     #
-    # np.savetxt(os.path.join(save_dir, "positions.dat"), np.array(positions))
-    # np.savetxt(os.path.join(save_dir, "slices.dat"), np.atleast_2d(slices))
-    # slices_original = slices
+    np.savetxt(os.path.join(save_dir, "positions.dat"), np.array(positions))
+    np.savetxt(os.path.join(save_dir, "slices.dat"), np.atleast_2d(slices))
+    slices_original = slices
+
+    save_file = "za_rs_median.txt"
+    np.savetxt(os.path.join(save_dir, save_file), np.vstack((zs, Rs)).T)
+    zs, Rs = np.loadtxt(os.path.join(save_dir, save_file), unpack=True)
+    fit_profile(zs, Rs, save_dir=save_dir, fix_r0=False, save_prefix="profile_fit")
+
+    sys.exit(0)
+
+
+
 
     slices_original = np.loadtxt(os.path.join(save_dir, "slices.dat"))
     slices_all = list()
@@ -607,7 +684,7 @@ if __name__ == "__main__":
         print("Anlge = ", angle)
         try:
             zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=0.86, save_dir=save_dir,
-                                                   dlib_max=0.6, z_obs_min_mas=0.5, z_obs_max_mas=10., rotation_angle_deg=angle, plot=False)
+                                                   dlib_max=0.6, z_obs_min_mas=0.5, z_obs_max_mas=20., rotation_angle_deg=angle, plot=False)
         except:
             continue
         slices_all.append(slices)
@@ -635,6 +712,6 @@ if __name__ == "__main__":
     # plt.show()
 
 
-    np.savetxt(os.path.join(save_dir, "zs_rs.txt"), np.vstack((zs, Rs)).T)
-    zs, Rs = np.loadtxt(os.path.join(save_dir, "zs_rs.txt"), unpack=True)
-    fit_profile(zs, Rs, save_dir=save_dir, fix_r0=False, save_prefix="profile_fit")
+    # np.savetxt(os.path.join(save_dir, "zs_rs.txt"), np.vstack((zs, Rs)).T)
+    # zs, Rs = np.loadtxt(os.path.join(save_dir, "zs_rs.txt"), unpack=True)
+    # fit_profile(zs, Rs, save_dir=save_dir, fix_r0=False, save_prefix="profile_fit")

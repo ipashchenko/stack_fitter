@@ -29,9 +29,9 @@ matplotlib.rcParams['axes.prop_cycle'] = cycler('color', ['#1f77b4', '#ff7f0e', 
 matplotlib.rcParams['figure.figsize'] = (6.4, 4.8)
 
 # data_file = "/home/ilya/github/stack_fitter/real/zs_rs_real.txt"
-# save_dir = "/home/ilya/github/stack_fitter/real"
-data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
-save_dir = "/home/ilya/github/stack_fitter/simulations"
+save_dir = "/home/ilya/github/stack_fitter/real"
+# data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
+# save_dir = "/home/ilya/github/stack_fitter/simulations"
 
 positions = np.loadtxt(os.path.join(save_dir, "positions.dat"))
 slices = np.loadtxt(os.path.join(save_dir, "slices.dat"))
@@ -123,70 +123,70 @@ halfwidth = 50
 
 ##################################### SINGLE SLOPE ###########################################################################
 
-# with pm.Model() as model:
-#     a = pm.Normal("a", mu=0.5, sigma=0.5)
-#     b = pm.Normal("b", mu=0., sigma=1.0)
-#     r0 = pm.Normal("r0", mu=-10., sigma=1.0)
-#     # logsigma = pm.Normal(f"logsigma", mu=-5, sigma=3.0)
-#
-#     # Distance of the ridge from the jet center
-#     ridge_pos = pm.Deterministic("ridge_pos", pt.exp(b)*pt.power(positions + pt.exp(r0), a))
-#     width_fraction = pm.Uniform("width_fraction", lower=0, upper=0.9)
-#     width = pm.Deterministic("width", pt.sqrt(width_fraction**2*ridge_pos**2 + (8.5*gaussian_fwhm_to_sigma)**2))
-#
-#     for i in range(len(positions)):
-#         # nu = pm.Uniform(f"nu_{i}", lower=2, upper=100)
-#         logamp = pm.Normal(f"logamp_{i}", mu=-2.0, sigma=3.0)
-#         logamp_center = pm.Normal(f"logamp_center_{i}", mu=-4.0, sigma=3.0)
-#         slice = pm.Deterministic(f"slice_{i}", pt.exp(logamp)*pt.exp(-((slice_x - halfwidth + ridge_pos[i])/(2*width[i]))**2) +
-#                                                pt.exp(logamp)*pt.exp(-((slice_x - halfwidth - ridge_pos[i])/(2*width[i]))**2) +
-#                                                pt.exp(logamp_center)*pt.exp(-((slice_x - halfwidth)/(2*width[i]))**2))
-#         # obs_slice = pm.StudentT(f"obs_slice_{i}", mu=slice, sigma=pt.exp(logsigma), nu=nu, observed=slices[i])
-#         # FIXME: The problem is that single sigma works bad for far regions, where flux ~ sigma
-#         obs_slice = pm.Normal(f"obs_slice_{i}", mu=slice, sigma=slices_std[i], observed=slices[i])
-#
-#     mp = pm.find_MAP(include_transformed=True)
-
-########################################################################################################################
-
-
-##################################### DOUBLE SLOPE ###########################################################################
-r_min = np.min(positions)
-r_max = np.max(positions)
-
 with pm.Model() as model:
-    a_before = pm.Normal("a_before", mu=0.5, sigma=0.01)
-    b_before = pm.Normal("b_before", mu=0., sigma=1.0)
-    a_after = pm.Normal("a_after", mu=0.5, sigma=0.01)
-    # FIXME: artificial data case
+    a = pm.Normal("a", mu=0.5, sigma=0.5)
+    b = pm.Normal("b", mu=0., sigma=1.0)
     r0 = pm.Normal("r0", mu=-10., sigma=1.0)
-    r1 = pm.Normal("r1", mu=0., sigma=0.5)
-    cp = pm.Uniform("cp", lower=r_min+0.5, upper=r_max-0.5)
-    b_after = pm.Deterministic("b_after", b_before + a_before*pt.log(cp + pt.exp(r0)) - a_after*pt.log(cp + r1))
+    # logsigma = pm.Normal(f"logsigma", mu=-5, sigma=3.0)
 
     # Distance of the ridge from the jet center
-    ridge_pos = pm.Deterministic("ridge_pos", pt.switch(positions < cp,
-                                                        pt.exp(b_before)*pt.power(positions + pt.exp(r0), a_before),
-                                                        pt.exp(b_after)*pt.power(positions + r1, a_after))
-                                 )
+    ridge_pos = pm.Deterministic("ridge_pos", pt.exp(b)*pt.power(positions + pt.exp(r0), a))
     width_fraction = pm.Uniform("width_fraction", lower=0, upper=0.9)
     width = pm.Deterministic("width", pt.sqrt(width_fraction**2*ridge_pos**2 + (8.5*gaussian_fwhm_to_sigma)**2))
 
     for i in range(len(positions)):
         # nu = pm.Uniform(f"nu_{i}", lower=2, upper=100)
         logamp = pm.Normal(f"logamp_{i}", mu=-2.0, sigma=3.0)
-        # logamp_center = pm.Normal(f"logamp_center_{i}", mu=-4.0, sigma=3.0)
-        # pos_center = pm.Uniform(f"pos_center_{i}", lower=halfwidth-20, upper=halfwidth+20)
-        # slice = pm.Deterministic(f"slice_{i}", pt.exp(logamp)*pt.exp(-((slice_x - halfwidth + ridge_pos[i])/(2*width[i]))**2) +
-        #                                        pt.exp(logamp)*pt.exp(-((slice_x - halfwidth - ridge_pos[i])/(2*width[i]))**2) +
-        #                                        pt.exp(logamp_center)*pt.exp(-((slice_x - pos_center)/(2*width[i]))**2))
+        logamp_center = pm.Normal(f"logamp_center_{i}", mu=-4.0, sigma=3.0)
         slice = pm.Deterministic(f"slice_{i}", pt.exp(logamp)*pt.exp(-((slice_x - halfwidth + ridge_pos[i])/(2*width[i]))**2) +
-                                               pt.exp(logamp)*pt.exp(-((slice_x - halfwidth - ridge_pos[i])/(2*width[i]))**2))
+                                               pt.exp(logamp)*pt.exp(-((slice_x - halfwidth - ridge_pos[i])/(2*width[i]))**2) +
+                                               pt.exp(logamp_center)*pt.exp(-((slice_x - halfwidth)/(2*width[i]))**2))
         # obs_slice = pm.StudentT(f"obs_slice_{i}", mu=slice, sigma=pt.exp(logsigma), nu=nu, observed=slices[i])
         # FIXME: The problem is that single sigma works bad for far regions, where flux ~ sigma
         obs_slice = pm.Normal(f"obs_slice_{i}", mu=slice, sigma=slices_std[i], observed=slices[i])
 
     mp = pm.find_MAP(include_transformed=True)
+
+########################################################################################################################
+
+
+##################################### DOUBLE SLOPE ###########################################################################
+# r_min = np.min(positions)
+# r_max = np.max(positions)
+#
+# with pm.Model() as model:
+#     a_before = pm.Normal("a_before", mu=0.5, sigma=0.01)
+#     b_before = pm.Normal("b_before", mu=0., sigma=1.0)
+#     a_after = pm.Normal("a_after", mu=0.5, sigma=0.01)
+#     # FIXME: artificial data case
+#     r0 = pm.Normal("r0", mu=-10., sigma=1.0)
+#     r1 = pm.Normal("r1", mu=0., sigma=0.5)
+#     cp = pm.Uniform("cp", lower=r_min+0.5, upper=r_max-0.5)
+#     b_after = pm.Deterministic("b_after", b_before + a_before*pt.log(cp + pt.exp(r0)) - a_after*pt.log(cp + r1))
+#
+#     # Distance of the ridge from the jet center
+#     ridge_pos = pm.Deterministic("ridge_pos", pt.switch(positions < cp,
+#                                                         pt.exp(b_before)*pt.power(positions + pt.exp(r0), a_before),
+#                                                         pt.exp(b_after)*pt.power(positions + r1, a_after))
+#                                  )
+#     width_fraction = pm.Uniform("width_fraction", lower=0, upper=0.9)
+#     width = pm.Deterministic("width", pt.sqrt(width_fraction**2*ridge_pos**2 + (8.5*gaussian_fwhm_to_sigma)**2))
+#
+#     for i in range(len(positions)):
+#         # nu = pm.Uniform(f"nu_{i}", lower=2, upper=100)
+#         logamp = pm.Normal(f"logamp_{i}", mu=-2.0, sigma=3.0)
+#         # logamp_center = pm.Normal(f"logamp_center_{i}", mu=-4.0, sigma=3.0)
+#         # pos_center = pm.Uniform(f"pos_center_{i}", lower=halfwidth-20, upper=halfwidth+20)
+#         # slice = pm.Deterministic(f"slice_{i}", pt.exp(logamp)*pt.exp(-((slice_x - halfwidth + ridge_pos[i])/(2*width[i]))**2) +
+#         #                                        pt.exp(logamp)*pt.exp(-((slice_x - halfwidth - ridge_pos[i])/(2*width[i]))**2) +
+#         #                                        pt.exp(logamp_center)*pt.exp(-((slice_x - pos_center)/(2*width[i]))**2))
+#         slice = pm.Deterministic(f"slice_{i}", pt.exp(logamp)*pt.exp(-((slice_x - halfwidth + ridge_pos[i])/(2*width[i]))**2) +
+#                                                pt.exp(logamp)*pt.exp(-((slice_x - halfwidth - ridge_pos[i])/(2*width[i]))**2))
+#         # obs_slice = pm.StudentT(f"obs_slice_{i}", mu=slice, sigma=pt.exp(logsigma), nu=nu, observed=slices[i])
+#         # FIXME: The problem is that single sigma works bad for far regions, where flux ~ sigma
+#         obs_slice = pm.Normal(f"obs_slice_{i}", mu=slice, sigma=slices_std[i], observed=slices[i])
+#
+#     mp = pm.find_MAP(include_transformed=True)
 
 ########################################################################################################################
 #
@@ -217,9 +217,9 @@ with pm.Model() as model:
     # print(sorted([name + ":" + str(mp[name]) for name in mp.keys() if not name.endswith("_")]))
 #
 #
-    a_mp = float(mp['a'])
-    b_mp = float(mp['b'])
-    r0_mp = float(mp['r0'])
+    # a_mp = float(mp['a'])
+    # b_mp = float(mp['b'])
+    # r0_mp = float(mp['r0'])
 #
 #     mu, var = gp.predict(rnew, point=mp, diag=True)
 #     only_gp = mu - np.exp(b_mp)*(rnew[:, 0] + np.exp(r0_mp))**a_mp
