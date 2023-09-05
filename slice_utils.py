@@ -986,32 +986,32 @@ if __name__ == "__main__":
     # sys.exit(0)
 
 
-    # MOJAVE CUSTOM STACK
-    uvfits_files_dir = "/home/ilya/Downloads/M87_uvf"
-    bad_epochs = ("2007_06_03", "2007_02_05", "2006_06_15", "2001_03_15", "2000_06_27", "1996_05_16", "1995_12_15",
-                  "1995_07_28")
-    uvfits_files = glob.glob(os.path.join(uvfits_files_dir, "1228+126.u.*.uvf"))
-    print("UVFITS files : ", uvfits_files)
-    available_epochs = []
-    for uvfits_file in uvfits_files:
-        print("Parsing UVFITS file : ", uvfits_file)
-        fn = os.path.split(uvfits_file)[-1]
-        print("FN = ", fn)
-        epoch = fn.split(".")[2]
-        available_epochs.append(epoch)
-    print(f"Found {len(available_epochs)} epochs from UVFITS files.")
-    for epoch in bad_epochs:
-        print(f"Removing epoch {epoch} from list")
-        available_epochs.remove(epoch)
-
-    uvfits_files = [os.path.join(uvfits_files_dir, "1228+126.u.{}.uvf".format(epoch)) for epoch in available_epochs]
-    ccfits_files = [os.path.join(uvfits_files_dir, "1228+126.u.{}.icn.fits.gz".format(epoch)) for epoch in available_epochs]
-    common_mapsize = (2048, 0.1)
-    common_circ_beam_size_mas = 1.4
-    stack_image = construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize,
-                                              common_circ_beam_size_mas, working_dir=save_dir, stokes="I")
-    np.savetxt(os.path.join(save_dir, "mojave_custom_stack_fwhm_1.4.txt"), stack_image)
-    sys.exit(0)
+    # # MOJAVE CUSTOM STACK
+    # uvfits_files_dir = "/home/ilya/Downloads/M87_uvf"
+    # bad_epochs = ("2007_06_03", "2007_02_05", "2006_06_15", "2001_03_15", "2000_06_27", "1996_05_16", "1995_12_15",
+    #               "1995_07_28")
+    # uvfits_files = glob.glob(os.path.join(uvfits_files_dir, "1228+126.u.*.uvf"))
+    # print("UVFITS files : ", uvfits_files)
+    # available_epochs = []
+    # for uvfits_file in uvfits_files:
+    #     print("Parsing UVFITS file : ", uvfits_file)
+    #     fn = os.path.split(uvfits_file)[-1]
+    #     print("FN = ", fn)
+    #     epoch = fn.split(".")[2]
+    #     available_epochs.append(epoch)
+    # print(f"Found {len(available_epochs)} epochs from UVFITS files.")
+    # for epoch in bad_epochs:
+    #     print(f"Removing epoch {epoch} from list")
+    #     available_epochs.remove(epoch)
+    #
+    # uvfits_files = [os.path.join(uvfits_files_dir, "1228+126.u.{}.uvf".format(epoch)) for epoch in available_epochs]
+    # ccfits_files = [os.path.join(uvfits_files_dir, "1228+126.u.{}.icn.fits.gz".format(epoch)) for epoch in available_epochs]
+    # common_mapsize = (2048, 0.1)
+    # common_circ_beam_size_mas = 1.4
+    # stack_image = construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize,
+    #                                           common_circ_beam_size_mas, working_dir=save_dir, stokes="I")
+    # np.savetxt(os.path.join(save_dir, "mojave_custom_stack_fwhm_1.4.txt"), stack_image)
+    # sys.exit(0)
 
 
     # n_epochs = 45
@@ -1024,7 +1024,9 @@ if __name__ == "__main__":
     # image = np.loadtxt(os.path.join(save_dir, stack_file))
 
     # MOJAVE STACK
-    image = pf.getdata("/home/ilya/github/stack_fitter/real/1228+126.u.stacked.i.fits.gz").squeeze()
+    stack_file = "mojave_custom_stack_fwhm_1.4.txt"
+    image = np.loadtxt(os.path.join(save_dir, stack_file))
+    # image = pf.getdata("/home/ilya/github/stack_fitter/real/1228+126.u.stacked.i.fits.gz").squeeze()
     # from scipy.ndimage import gaussian_filter
     # needed_sigma = np.sqrt(1.5**2 - 0.86**2) * gaussian_fwhm_to_sigma
     # print("Aditional convolving sigma = ", needed_sigma)
@@ -1032,13 +1034,8 @@ if __name__ == "__main__":
     # image = gaussian_filter(image, needed_sigma, mode="constant")
 
 
-    from astropy.convolution import convolve, Gaussian2DKernel
-    needed_sigma = np.sqrt(1.5**2 - 0.85**2) * gaussian_fwhm_to_sigma
-    kernel = Gaussian2DKernel(needed_sigma)
-    image = convolve(image, kernel)
-
-    zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=1.5, save_dir=save_dir, dlib_max=0.6,
-                                           z_obs_min_mas=0.5, z_obs_max_mas=15.0, rotation_angle_deg=17.0, plot=True)
+    zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=1.4, save_dir=save_dir, dlib_max=0.6,
+                                           z_obs_min_mas=0.5, z_obs_max_mas=30.0, rotation_angle_deg=17.0, plot=True)
     #
     np.savetxt(os.path.join(save_dir, "positions.dat"), np.array(positions))
     np.savetxt(os.path.join(save_dir, "slices.dat"), np.atleast_2d(slices))
