@@ -27,14 +27,18 @@ matplotlib.rcParams['axes.prop_cycle'] = cycler('color', ['#1f77b4', '#ff7f0e', 
 # Default figure size
 matplotlib.rcParams['figure.figsize'] = (6.4, 4.8)
 
-data_file = "/home/ilya/github/stack_fitter/real/med_0.25_4g/za_rs_0.25med.txt"
-save_dir = "/home/ilya/github/stack_fitter/real/med_0.25_4g"
+data_file = "/home/ilya/github/stack_fitter/real/mojave/za_rs_0.1max_2g_custom_mojave.txt"
+save_dir = "/home/ilya/github/stack_fitter/real/mojave"
 # data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
 # save_dir = "/home/ilya/github/stack_fitter/simulations"
 
 n_each = 1
 r, R = np.loadtxt(data_file, unpack=True)
-R = medfilt(R, 3)
+max_r = 15
+mask = r < max_r
+r = r[mask]
+R = R[mask]
+# R = medfilt(R, 3)
 r_min = np.min(r)
 r_max = np.max(r)
 r = r[::n_each]
@@ -96,7 +100,7 @@ with pm.Model() as model:
     # eta = pm.HalfNormal("eta", sigma=0.2, initval=0.2)
     logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
     sigma = pm.HalfCauchy("sigma", beta=0.1, initval=0.1)
-    # l = 1.0
+    # l = 1.4
     l = pm.HalfCauchy("l", beta=0.1, initval=0.1)
     # cov = eta**2 * pm.gp.cov.ExpQuad(1, l)
     cov = eta**2 * pm.gp.cov.RatQuad(1, pt.exp(logalpha), l)
@@ -153,7 +157,7 @@ with pm.Model() as model:
     axes.text(0.03, 0.80, r"$r_{{\rm break}}$ = {:.2f}".format(cp_mp),
                fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
     axes.axvline(cp_mp, lw=1, color="k", ls="--")
-    fig.savefig(os.path.join(save_dir, "pymc_changepoint_0.25med_4g.png"), bbox_inches="tight", dpi=300)
+    fig.savefig(os.path.join(save_dir, "pymc_changepoint_0.1max_2g_custom_mojave_up_to_15mas.png"), bbox_inches="tight", dpi=300)
     plt.show()
 
 

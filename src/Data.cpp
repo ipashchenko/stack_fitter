@@ -29,8 +29,10 @@ void Data::load(std::string filename)
 	int size = r_.size();
 	for(int i=0; i < size; i += 1)
 	{
-		r__.push_back(r_[i]);
-		R__.push_back(R_[i]);
+		if(r_[i] < 30.1) {
+			r__.push_back(r_[i]);
+			R__.push_back(R_[i]);
+		}
 	}
 	
 	r = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(r__.data(), r__.size());

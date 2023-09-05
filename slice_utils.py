@@ -1035,7 +1035,7 @@ if __name__ == "__main__":
 
 
     zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=1.4, save_dir=save_dir, dlib_max=0.6,
-                                           z_obs_min_mas=0.5, z_obs_max_mas=30.0, rotation_angle_deg=17.0, plot=True)
+                                           z_obs_min_mas=0.5, z_obs_max_mas=15.0, rotation_angle_deg=17.0, plot=True)
     #
     np.savetxt(os.path.join(save_dir, "positions.dat"), np.array(positions))
     np.savetxt(os.path.join(save_dir, "slices.dat"), np.atleast_2d(slices))

@@ -36,11 +36,13 @@ artificial = False
 n_pred = 1000
 # n_pred = 300
 n_each = 1
+# r_max_mas = 15.1
+r_max_mas = 30.1
 alpha = 0.05
 small_font = 12
-# data_file = "/home/ilya/github/stack_fitter/m87_r_fwhm.txt"
-data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
-save_dir = "/home/ilya/github/stack_fitter"
+# data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
+data_file = "/home/ilya/github/stack_fitter/real/mojave/za_rs_0.1max_2g_custom_mojave.txt"
+save_dir = "/home/ilya/github/stack_fitter/real/mojave"
 run_dir = "/home/ilya/github/stack_fitter/Release"
 fitted_file = "/home/ilya/github/stack_fitter/Release/posterior_sample.txt"
 
@@ -55,6 +57,9 @@ post_samples = np.loadtxt(fitted_file)
 n_post = len(post_samples)
 
 r, R = np.loadtxt(data_file, unpack=True)
+mask = r < r_max_mas
+r = r[mask]
+R = R[mask]
 r_grid = np.linspace(np.min(r), np.max(r), 1000)
 r = r[::n_each]
 R = R[::n_each]
@@ -63,7 +68,7 @@ fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
 axes.set_xlabel("Separation (mas)")
 axes.set_ylabel(r"Width (mas)")
 axes.scatter(r, R, zorder=5, color="black", s=3)
-axes.set_ylim([-1, 7])
+# axes.set_ylim([-1, 5.5])
 
 if n_pred > n_post:
     n_pred = n_post
@@ -214,5 +219,5 @@ else:
 if artificial:
     fig_name = "artificial_" + fig_name
 
-fig.savefig(fig_name, bbox_inches="tight", dpi=300)
+fig.savefig(os.path.join(save_dir, fig_name), bbox_inches="tight", dpi=300)
 plt.show()

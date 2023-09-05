@@ -18,7 +18,10 @@ from jet_image import JetImage, TwinJetImage
 
 freq_ghz = 15.4
 # Directory to save files
-save_dir = "/home/ilya/github/stack_fitter/simulations"
+save_dir = "/home/ilya/github/stack_fitter/simulations/mojave"
+if not os.path.exists(save_dir):
+    os.mkdir(save_dir)
+
 n_epochs = None
 # Some template UVFITS with full polarization. Its uv-coverage and noise will be used while creating fake data
 # template_uvfits = "/home/ilya/github/bk_transfer/uvfits/1458+718.u.2006_09_06.uvf"
@@ -34,7 +37,8 @@ mapsize = (1024, 0.1)
 # Common beam
 # common_beam = (1.35, 1.35, 0)
 # MOJAVE old stack
-common_beam = (0.85, 0.85, 0)
+# common_beam = (0.85, 0.85, 0)
+common_beam = (1.4, 1.4, 0)
 # For artificial jet aligned with negative RA axis
 # blc = (435, 416)
 # trc = (700, 548)

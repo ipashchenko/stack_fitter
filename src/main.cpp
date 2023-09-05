@@ -21,7 +21,9 @@ int main(int argc, char** argv)
 {
 //	omp_set_num_threads(1);
 	// Data::get_instance().load("/home/ilya/github/stack_fitter/m87_r_fwhm.txt");
-	Data::get_instance().load("/home/ilya/github/stack_fitter/simulations/zs_rs_real.txt");
+//	Data::get_instance().load("/home/ilya/github/stack_fitter/simulations/zs_rs_real.txt");
+//	Data::get_instance().load("/home/ilya/github/stack_fitter/simulations/zs_rs_real.txt");
+	Data::get_instance().load("/home/ilya/github/stack_fitter/real/mojave/za_rs_0.1max_2g_custom_mojave.txt");
 //	Sampler<Model> sampler = setup<Model>(argc, argv);
 //	Sampler<ModelCP> sampler = setup<ModelCP>(argc, argv);
 //	Sampler<ModelGP> sampler = setup<ModelGP>(argc, argv);
