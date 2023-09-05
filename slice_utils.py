@@ -111,9 +111,9 @@ def get_slices(image, pixsize_mas, beam_size_mas, z_obs_min_mas=0.5, z_obs_max_m
         else:
             use = "bobyqa"
         if z_obs_min_mas + delta*i*pixsize_mas < 5.0:
-            min_amp_coeff = 0.05
+            min_amp_coeff = 0.1
         else:
-            min_amp_coeff = 0.05
+            min_amp_coeff = 0.1
 
         width_pixels, x0 = fit_single_slice_Gauss3(x, y, halfwidth=halfwidth, beam_size_pixels=beam_size_mas/pixsize_mas, std=std, plot=plot,
                                                    use=use, save_dir=save_dir, z_obs_mas=z_obs_min_mas + delta*i*pixsize_mas,
@@ -336,12 +336,12 @@ def fit_single_slice_Gauss3(x, y, **kwargs):
 
     if kwargs["use"] == "dlib":
         print("Using DLIB")
-        lower_bounds = [kwargs["std"], 10., beam_size_pixels_stddev,
+        lower_bounds = [min_amp_coeff*np.max(y), 10., beam_size_pixels_stddev,
                         kwargs["std"], 10., beam_size_pixels_stddev,
-                        kwargs["std"], 10., beam_size_pixels_stddev]
-        upper_bounds = [10., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev,
-                        10., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev,
-                        10., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev]
+                        min_amp_coeff*np.max(y), 10., beam_size_pixels_stddev]
+        upper_bounds = [1., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev,
+                        1., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev,
+                        1., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev]
 
         n_fun_eval = 3000
         def minfunc(*p):
@@ -382,12 +382,12 @@ def fit_single_slice_Gauss3(x, y, **kwargs):
         # upper_bounds = [1., kwargs["halfwidth"]+1, 3*beam_size_pixels_stddev,
         #                 1., 2*kwargs["halfwidth"]-10, 3*beam_size_pixels_stddev]
 
-        lower_bounds = [kwargs["std"], 10., beam_size_pixels_stddev,
+        lower_bounds = [min_amp_coeff*np.max(y), 10., beam_size_pixels_stddev,
                         kwargs["std"], 10., beam_size_pixels_stddev,
-                        kwargs["std"], 10., beam_size_pixels_stddev]
-        upper_bounds = [10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
-                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
-                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev]
+                        min_amp_coeff*np.max(y), 10., beam_size_pixels_stddev]
+        upper_bounds = [1., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        1., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        1., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev]
 
         def minfunc(p):
             amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2 = p
@@ -406,6 +406,8 @@ def fit_single_slice_Gauss3(x, y, **kwargs):
             return result
 
         x0 = kwargs["x0"]
+        # if x0 is None:
+        #     x0 = ()
         soln = pybobyqa.solve(minfunc, x0, maxfun=1000, bounds=(lower_bounds, upper_bounds),
                               seek_global_minimum=True, print_progress=False, scaling_within_bounds=True,
                               rhoend=1e-8)
@@ -771,21 +773,21 @@ def construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize, comm
                                 working_dir=None, stokes="I", blc=None, trc=None):
     if working_dir is None:
         working_dir = os.getcwd()
-    # tmp_difmap_mdl_file = os.path.join(working_dir, "dfm.mdl")
-    # images = list()
-    # for ccfits, uvfits in zip(ccfits_files, uvfits_files):
-    #     CCFITS_to_difmap(ccfits, tmp_difmap_mdl_file)
-    #     out_ccfits = os.path.join(working_dir, "cc.fits")
-    #     convert_difmap_model_file_to_CCFITS(tmp_difmap_mdl_file, stokes, common_mapsize,
-    #                                         (common_circ_beam_size_mas, common_circ_beam_size_mas, 0),
-    #                                         uvfits, out_ccfits, shift=None, show_difmap_output=True)
-    #     image = create_image_from_fits_file(out_ccfits)
-    #     images.append(image.image)
-    # stack = np.mean(images, axis=0)
+    tmp_difmap_mdl_file = os.path.join(working_dir, "dfm.mdl")
+    images = list()
+    for ccfits, uvfits in zip(ccfits_files, uvfits_files):
+        CCFITS_to_difmap(ccfits, tmp_difmap_mdl_file)
+        out_ccfits = os.path.join(working_dir, "cc.fits")
+        convert_difmap_model_file_to_CCFITS(tmp_difmap_mdl_file, stokes, common_mapsize,
+                                            (common_circ_beam_size_mas, common_circ_beam_size_mas, 0),
+                                            uvfits, out_ccfits, shift=None, show_difmap_output=True)
+        image = create_image_from_fits_file(out_ccfits)
+        images.append(image.image)
+    stack = np.mean(images, axis=0)
 
-    stack_file = "deep_stack.txt"
-    save_dir = "/home/ilya/github/stack_fitter/simulations"
-    stack = np.loadtxt(os.path.join(save_dir, stack_file))
+    # stack_file = "deep_stack.txt"
+    # save_dir = "/home/ilya/github/stack_fitter/simulations"
+    # stack = np.loadtxt(os.path.join(save_dir, stack_file))
 
     npixels_beam = np.pi*common_circ_beam_size_mas/(4*np.log(2)*common_mapsize[1]**2)
     std = 0.06e-03
@@ -809,34 +811,38 @@ def construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize, comm
 if __name__ == "__main__":
 
 
-    save_dir = "/home/ilya/github/stack_fitter/real"
+    save_dir = "/home/ilya/github/stack_fitter/real/deep"
     # save_dir = "/home/ilya/github/stack_fitter/simulations"
 
-    # # uvfits_files_dir = "/home/ilya/Downloads/M87_uvf"
-    # # epochs = ("2000_12_30",
-    # #           "2000_05_08",
-    # #           "2000_01_22",
-    # #           "2009_05_23")
-    # # uvfits_files = [os.path.join(uvfits_files_dir, "1228+126.u.{}.uvf".format(epoch)) for epoch in epochs]
-    # # ccfits_files = [os.path.join(save_dir, "1228+126.u.{}.icn.fits".format(epoch)) for epoch in epochs]
-    # # common_mapsize = (2048, 0.1)
-    # # common_circ_beam_size_mas = 1.0
-    # # stack_image = construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize,
-    # #                                           common_circ_beam_size_mas, working_dir=save_dir, stokes="I")
-    # #
-    # # np.savetxt(os.path.join(save_dir, "deep_stack.txt"), stack_image)
-    # #
-    # # sys.exit(0)
-    #
+    # uvfits_files_dir = "/home/ilya/Downloads/M87_uvf"
+    # epochs = ("2000_12_30",
+    #           "2000_05_08",
+    #           "2000_01_22",
+    #           "2009_05_23")
+    # uvfits_files = [os.path.join(uvfits_files_dir, "1228+126.u.{}.uvf".format(epoch)) for epoch in epochs]
+    # ccfits_files = [os.path.join(save_dir, "1228+126.u.{}.icn.fits".format(epoch)) for epoch in epochs]
+    # common_mapsize = (2048, 0.1)
+    # common_circ_beam_size_mas = 1.4
+    # stack_image = construct_stack_from_CCFITS(ccfits_files, uvfits_files, common_mapsize,
+    #                                           common_circ_beam_size_mas, working_dir=save_dir, stokes="I")
+    # np.savetxt(os.path.join(save_dir, "deep_stack.txt"), stack_image)
+    # sys.exit(0)
+
 
     # n_epochs = 45
     # # stack_file = f"stack_i_{n_epochs}_epochs.txt"
     # stack_file = f"stack_i_{n_epochs}_epochs_inclined.txt"
     # image = np.loadtxt(os.path.join(save_dir, stack_file))
 
-    image = pf.getdata("/home/ilya/github/stack_fitter/real/1228+126.u.stacked.i.fits.gz").squeeze()
-    zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=0.85, save_dir=save_dir, dlib_max=0.6,
-                                           z_obs_min_mas=0.5, z_obs_max_mas=20., rotation_angle_deg=17.0, plot=True)
+    # DEEP STACK
+    stack_file = "deep_stack.txt"
+    image = np.loadtxt(os.path.join(save_dir, stack_file))
+
+    # MOJAVE STACK
+    # image = pf.getdata("/home/ilya/github/stack_fitter/real/1228+126.u.stacked.i.fits.gz").squeeze()
+
+    zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=1.4, save_dir=save_dir, dlib_max=0.6,
+                                           z_obs_min_mas=0.5, z_obs_max_mas=30.0, rotation_angle_deg=17.0, plot=True)
     #
     np.savetxt(os.path.join(save_dir, "positions.dat"), np.array(positions))
     np.savetxt(os.path.join(save_dir, "slices.dat"), np.atleast_2d(slices))
@@ -852,23 +858,25 @@ if __name__ == "__main__":
 
 
 
-    slices_original = np.loadtxt(os.path.join(save_dir, "slices.dat"))
-    slices_all = list()
-    for angle in np.linspace(17-2, 17+2, 20):
-        print("Anlge = ", angle)
-        try:
-            zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=0.86, save_dir=save_dir,
-                                                   dlib_max=0.6, z_obs_min_mas=0.5, z_obs_max_mas=20., rotation_angle_deg=angle, plot=False)
-        except:
-            continue
-        slices_all.append(slices)
+    # slices_original = np.loadtxt(os.path.join(save_dir, "slices.dat"))
+    # slices_all = list()
+    # for angle in np.linspace(17-2, 17+2, 20):
+    #     print("Anlge = ", angle)
+    #     try:
+    #         zs, Rs, positions, slices = get_slices(image, pixsize_mas=0.1, beam_size_mas=0.86, save_dir=save_dir,
+    #                                                dlib_max=0.6, z_obs_min_mas=0.5, z_obs_max_mas=20., rotation_angle_deg=angle, plot=False)
+    #     except:
+    #         continue
+    #     slices_all.append(slices)
+    #
+    #
+    # slices_std = list()
+    # for i in range(len(slices_original)):
+    #     slices_std.append(np.std([s[i] for s in slices_all], axis=0))
+    #
+    # np.savetxt(os.path.join(save_dir, "slices_std.dat"), np.atleast_2d(slices_std))
 
 
-    slices_std = list()
-    for i in range(len(slices_original)):
-        slices_std.append(np.std([s[i] for s in slices_all], axis=0))
-
-    np.savetxt(os.path.join(save_dir, "slices_std.dat"), np.atleast_2d(slices_std))
 
     # Rs_all = list()
     # for angle in np.linspace(17-2, 17+2, 20):
