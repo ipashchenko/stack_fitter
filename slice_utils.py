@@ -115,7 +115,7 @@ def get_slices(image, pixsize_mas, beam_size_mas, z_obs_min_mas=0.5, z_obs_max_m
         else:
             min_amp_coeff = 0.05
 
-        width_pixels, x0 = fit_single_slice_Gauss4(x, y, halfwidth=halfwidth, beam_size_pixels=beam_size_mas/pixsize_mas, std=std, plot=plot,
+        width_pixels, x0 = fit_single_slice_Gauss3(x, y, halfwidth=halfwidth, beam_size_pixels=beam_size_mas/pixsize_mas, std=std, plot=plot,
                                                    use=use, save_dir=save_dir, z_obs_mas=z_obs_min_mas + delta*i*pixsize_mas,
                                                    min_amp_coeff=min_amp_coeff, x0=x0)
         slices.append(y)
@@ -311,6 +311,180 @@ def fit_single_slice_Gauss2(x, y, **kwargs):
     return solution_2 - solution_1, x0
 
 
+def fit_single_slice_Gauss3(x, y, **kwargs):
+
+    do_plot = kwargs["plot"]
+    beam_size_pixels_stddev = gaussian_fwhm_to_sigma*kwargs["beam_size_pixels"]
+    std = kwargs["std"]
+    min_amp_coeff = kwargs["min_amp_coeff"]
+    print("std = ", std)
+
+    g1 = Gaussian1D(amplitude=0.8*np.ma.max(y), mean=0.7*kwargs["halfwidth"], stddev=1.1*beam_size_pixels_stddev,
+                    bounds={"amplitude": (min_amp_coeff*np.ma.max(y), 1.),
+                            "mean": (10, 2*kwargs["halfwidth"]-10),
+                            "stddev": (beam_size_pixels_stddev, 5*beam_size_pixels_stddev)})
+    g2 = Gaussian1D(amplitude=0.8*np.ma.max(y), mean=0.9*kwargs["halfwidth"], stddev=1.1*beam_size_pixels_stddev,
+                    bounds={"amplitude": (kwargs["std"], 1.),
+                            "mean": (10, 2*kwargs["halfwidth"]-10),
+                            "stddev": (beam_size_pixels_stddev, 5*beam_size_pixels_stddev)})
+    g3 = Gaussian1D(amplitude=0.5*np.ma.max(y), mean=1.0*kwargs["halfwidth"], stddev=1.1*beam_size_pixels_stddev,
+                    bounds={"amplitude": (min_amp_coeff*np.max(y), 1.),
+                            "mean": (10, 2*kwargs["halfwidth"]-10),
+                            "stddev": (beam_size_pixels_stddev, 5*beam_size_pixels_stddev)})
+    g = g1 + g2 + g3
+
+
+    if kwargs["use"] == "dlib":
+        print("Using DLIB")
+        lower_bounds = [kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev]
+        upper_bounds = [10., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 2*beam_size_pixels_stddev]
+
+        n_fun_eval = 3000
+        def minfunc(*p):
+            amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2 = p
+            g[0].amplitude = amp0
+            g[0].mean = mean0
+            g[0].stddev = sigma0
+            g[1].amplitude = amp1
+            g[1].mean = mean1
+            g[1].stddev = sigma1
+            g[2].amplitude = amp2
+            g[2].mean = mean2
+            g[2].stddev = sigma2
+            result = np.sum((y - g(x))**2)
+
+            return result
+
+        delta_bound, _ = dlib.find_min_global(minfunc, bound1=lower_bounds, bound2=upper_bounds, num_function_calls=n_fun_eval)
+        print("delta_bound :", delta_bound)
+        p = delta_bound
+        print("after :",  p)
+        amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2 = p
+        g[0].amplitude = amp0
+        g[0].mean = mean0
+        g[0].stddev = sigma0
+        g[1].amplitude = amp1
+        g[1].mean = mean1
+        g[1].stddev = sigma1
+        g[2].amplitude = amp2
+        g[2].mean = mean2
+        g[2].stddev = sigma2
+
+        x0 = p
+
+    elif kwargs["use"] == "bobyqa":
+        # lower_bounds = [0.05*np.ma.max(y), 10., 0.25*beam_size_pixels_stddev,
+        #                 0.05*np.ma.max(y), kwargs["halfwidth"]-1, 0.25*beam_size_pixels_stddev]
+        # upper_bounds = [1., kwargs["halfwidth"]+1, 3*beam_size_pixels_stddev,
+        #                 1., 2*kwargs["halfwidth"]-10, 3*beam_size_pixels_stddev]
+
+        lower_bounds = [kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev,
+                        kwargs["std"], 10., beam_size_pixels_stddev]
+        upper_bounds = [10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev,
+                        10., 2*kwargs["halfwidth"]-10, 4*beam_size_pixels_stddev]
+
+        def minfunc(p):
+            amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2 = p
+            g[0].amplitude = amp0
+            g[0].mean = mean0
+            g[0].stddev = sigma0
+            g[1].amplitude = amp1
+            g[1].mean = mean1
+            g[1].stddev = sigma1
+            g[2].amplitude = amp2
+            g[2].mean = mean2
+            g[2].stddev = sigma2
+
+            result = np.sum((y - g(x))**2)
+
+            return result
+
+        x0 = kwargs["x0"]
+        soln = pybobyqa.solve(minfunc, x0, maxfun=1000, bounds=(lower_bounds, upper_bounds),
+                              seek_global_minimum=True, print_progress=False, scaling_within_bounds=True,
+                              rhoend=1e-8)
+
+        p = soln.x
+        print("after :",  p)
+        amp0, mean0, sigma0, amp1, mean1, sigma1, amp2, mean2, sigma2 = p
+        g[0].amplitude = amp0
+        g[0].mean = mean0
+        g[0].stddev = sigma0
+        g[1].amplitude = amp1
+        g[1].mean = mean1
+        g[1].stddev = sigma1
+        g[2].amplitude = amp2
+        g[2].mean = mean2
+        g[2].stddev = sigma2
+
+        x0 = p
+
+    else:
+        print("Using LevMarLSQFitter")
+        fit_g = fitting.LevMarLSQFitter()
+        g = fit_g(g, x, y, weights=1/std, maxiter=10000, acc=1e-10, estimate_jacobian=False)
+        x0 = None
+
+    # Find maximum of the fitted function
+    from scipy.optimize import fmin, minimize_scalar
+    max_x = fmin(lambda x: -g(x), np.argmax(y))[0]
+    max_val = g(max_x)
+    x_4_med = x[g(x) > 0.1*max_val]
+    med_val = np.median(g(x_4_med))
+    print("Maximum x ", max_x)
+    print("Maximum value = ", max_val)
+    print("Median value = ", med_val)
+
+    # Value at which to calculate width ========================================
+    cut_value = 0.1*max_val
+    # cut_value = 0.25*med_val
+    # ==========================================================================
+
+    # Find points where g = 0.25 g_max
+    # solution_1 = minimize_scalar(lambda x: np.abs(g(x)-0.25*max_val), bounds=[0,max_x], method='Bounded')
+    # solution_2 = minimize_scalar(lambda x: np.abs(g(x)-0.25*max_val), bounds=[max_x, 2*kwargs["halfwidth"]], method='Bounded')
+
+
+    # First find upper bound
+    lower_bounds = [0]
+    upper_bounds = [np.where((y - cut_value) > 0)[0][0] + 5]
+    n_fun_eval = 200
+    delta_bound, _ = dlib.find_min_global(lambda x: np.abs(g(x)-cut_value), lower_bounds, upper_bounds, n_fun_eval)
+    solution_1 = delta_bound[0]
+    lower_bounds = [max_x]
+    upper_bounds = [np.where((y - cut_value) > 0)[0][-1] + 5]
+    delta_bound, _ = dlib.find_min_global(lambda x: np.abs(g(x)-cut_value), lower_bounds, upper_bounds, n_fun_eval)
+    solution_2 = delta_bound[0]
+
+    print("FWQM : ", solution_1, solution_2)
+
+    if do_plot:
+        fig, axes = plt.subplots(1, 1)
+        axes.scatter(x, y)
+        axes.plot(x, g[0](x), label="1")
+        axes.plot(x, g[1](x), label="2")
+        axes.plot(x, g[2](x), label="3")
+        axes.plot(x, g(x), label="all")
+        axes.axhline(cut_value, lw=1, color="k")
+        axes.axhline(max_val, lw=1, ls="-.", color="k")
+        axes.axhline(std, lw=1, ls="--", color="k", label=r"$\sigma$")
+        axes.axvline(solution_1, lw=1, color="k")
+        axes.axvline(solution_2, lw=1, color="k")
+        plt.legend()
+        fig.savefig(os.path.join(kwargs["save_dir"], "slice_z_obs_{:.2f}.png".format(kwargs["z_obs_mas"])), dpi=300, bbox_inches="tight")
+        # plt.show()
+        plt.close()
+
+    return solution_2 - solution_1, x0
+
+
+
 def fit_single_slice_Gauss4(x, y, **kwargs):
 
     do_plot = kwargs["plot"]
@@ -461,7 +635,7 @@ def fit_single_slice_Gauss4(x, y, **kwargs):
     print("Median value = ", med_val)
 
     # Value at which to calculate width ========================================
-    cut_value = 0.1*max_val
+    cut_value = 0.25*max_val
     # cut_value = 0.25*med_val
     # ==========================================================================
 
@@ -668,7 +842,7 @@ if __name__ == "__main__":
     np.savetxt(os.path.join(save_dir, "slices.dat"), np.atleast_2d(slices))
     slices_original = slices
 
-    save_file = "za_rs_median.txt"
+    save_file = "za_rs.txt"
     np.savetxt(os.path.join(save_dir, save_file), np.vstack((zs, Rs)).T)
     zs, Rs = np.loadtxt(os.path.join(save_dir, save_file), unpack=True)
     fit_profile(zs, Rs, save_dir=save_dir, fix_r0=False, save_prefix="profile_fit")

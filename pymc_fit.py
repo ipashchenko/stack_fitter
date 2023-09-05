@@ -27,8 +27,8 @@ matplotlib.rcParams['axes.prop_cycle'] = cycler('color', ['#1f77b4', '#ff7f0e', 
 # Default figure size
 matplotlib.rcParams['figure.figsize'] = (6.4, 4.8)
 
-data_file = "/home/ilya/github/stack_fitter/real/za_rs_median.txt"
-save_dir = "/home/ilya/github/stack_fitter/real"
+data_file = "/home/ilya/github/stack_fitter/real/med_0.25_4g/za_rs_0.25med.txt"
+save_dir = "/home/ilya/github/stack_fitter/real/med_0.25_4g"
 # data_file = "/home/ilya/github/stack_fitter/simulations/zs_rs.txt"
 # save_dir = "/home/ilya/github/stack_fitter/simulations"
 
@@ -91,9 +91,9 @@ with pm.Model() as model:
     b_after = pm.Deterministic("b_after", b_before + a_before*pt.log(cp + pt.exp(r0)) - a_after*pt.log(cp + r1))
     mean = MyMeanCP(a_before, b_before, a_after, r0, r1, cp)
 
-    # eta = pm.HalfNormal("eta", sigma=0.02, initval=0.02)
+    eta = pm.HalfNormal("eta", sigma=0.02, initval=0.02)
     # FIXME: artificial data case
-    eta = pm.HalfNormal("eta", sigma=0.2, initval=0.2)
+    # eta = pm.HalfNormal("eta", sigma=0.2, initval=0.2)
     logalpha = pm.Uniform("logalpha", lower=-5, upper=5)
     sigma = pm.HalfCauchy("sigma", beta=0.1, initval=0.1)
     # l = 1.0
@@ -153,7 +153,7 @@ with pm.Model() as model:
     axes.text(0.03, 0.80, r"$r_{{\rm break}}$ = {:.2f}".format(cp_mp),
                fontdict={"fontsize": small_font}, transform=axes.transAxes, ha="left")
     axes.axvline(cp_mp, lw=1, color="k", ls="--")
-    fig.savefig(os.path.join(save_dir, "pymc_changepoint_median.png"), bbox_inches="tight", dpi=300)
+    fig.savefig(os.path.join(save_dir, "pymc_changepoint_0.25med_4g.png"), bbox_inches="tight", dpi=300)
     plt.show()
 
 
