@@ -1,9 +1,12 @@
+import os
 import sys
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
 from astropy import units as u, constants as const, cosmology
+from astropy.stats import mad_std
 from scipy.stats import median_abs_deviation, scoreatpercentile
+from gp_utils import profile_1
 import matplotlib.pyplot as plt
 from cycler import cycler
 import scienceplots
@@ -158,6 +161,10 @@ def get_a_from_r1(r1_to_rg, gamma_in, sigma):
     return 8*r1_to_rg*np.sqrt(gamma_in*sigma)/(r1_to_rg**2 + 16*gamma_in*sigma)
 
 
+def get_R_L_in_r_g_units_from_r1(r1_to_rg, gamma_in, sigma):
+    return r1_to_rg/np.sqrt(gamma_in*sigma)
+
+
 def get_jet_power(Psi_total, R_L):
     """
     :param Psi_total:
@@ -171,7 +178,72 @@ def get_jet_power(Psi_total, R_L):
     return P_psi
 
 
+def get_posterior_samples(post_file):
+    post_samples = np.loadtxt(post_file)
+
+    a_before_samples, a_after_samples, b_before_samples, b_after_samples, r0_samples, r1_samples, \
+        log_changepoint_samples, abs_error_samples, frac_error_samples, gp_logamp_samples, gp_scale_samples, \
+        gp_logalpha_samples = np.split(post_samples, 12, 1)
+
+    a_before_samples = a_before_samples.flatten()
+    a_after_samples = a_after_samples.flatten()
+    b_before_samples = b_before_samples.flatten()
+    b_after_samples = b_after_samples.flatten()
+    r0_samples = r0_samples.flatten()
+    r1_samples = r1_samples.flatten()
+    log_changepoint_samples = log_changepoint_samples.flatten()
+    abs_error_samples = abs_error_samples.flatten()
+    frac_error_samples = frac_error_samples.flatten()
+    gp_logamp_samples = gp_logamp_samples.flatten()
+    gp_scale_samples = gp_scale_samples.flatten()
+    gp_logalpha_samples = gp_logalpha_samples.flatten()
+
+    width_samples = list()
+
+    for i in range(len(post_samples)):
+        zs = np.linspace(0.5, 30.0, 300)
+        zs = zs.tolist()
+        log_changepoint = log_changepoint_samples[i]
+        r0 = np.exp(r0_samples[i])
+        r1 = r1_samples[i]
+        zs.append(np.exp(log_changepoint))
+        zs = np.array(zs)
+        width = profile_1(zs, r0, r1, np.exp(log_changepoint), a_before_samples[i], a_after_samples[i], np.exp(b_before_samples[i]), 1.0)[-1]
+        # plt.plot(zs[:-1], width[:-1], color="C0")
+        # plt.scatter(zs[-1], width[-1], color="C1")
+        # plt.show()
+        width_samples.append(width)
+
+    return np.array(width_samples)
+
+
+def a_to_R_L(a):
+    """
+    :param a:
+        Dimensionless spin.
+    :return:
+        R_L in r_g units
+    """
+    M_BH = 6.5e+09*M_sun
+    return get_R_L(M_BH, a)/get_R_g(M_BH)
+
+def R_L_to_a(R_L):
+    """
+    :param R_L:
+        R_L in r_g units.
+    :return:
+        Dimensionless spin.
+    """
+    return 8*R_L/(R_L**2 + 4.**2)
+
+
 if __name__ == "__main__":
+    post_file = "/home/ilya/github/stack_fitter/real/mojave/MNRAS/posterior_sample_gp2.txt"
+    save_dir = "/home/ilya/github/stack_fitter/constrains"
+
+    width_samples = get_posterior_samples(post_file)/2.
+    # sys.exit(0)
+
     z = 0.00436
     D = 16.8e+06*u.pc
     sigma_D = 0.8e+06*u.pc
@@ -183,12 +255,12 @@ if __name__ == "__main__":
     print("R_L = ", R_L)
     theta_jet = np.deg2rad(10.)
     theta_obs = np.deg2rad(17.)
-    print("z1 through M,a = ", get_z1_Ma(gamma_in, sigma_M, M_BH_sun, a, theta_jet))
-    print("z1 through R_L = ", get_z1_RL(gamma_in, sigma_M, R_L, theta_jet))
-    print("Ang2dist = ", ang_to_dist(z))
+    # print("z1 through M,a = ", get_z1_Ma(gamma_in, sigma_M, M_BH_sun, a, theta_jet))
+    # print("z1 through R_L = ", get_z1_RL(gamma_in, sigma_M, R_L, theta_jet))
+    # print("Ang2dist = ", ang_to_dist(z))
     l_mas = 1
-    print("1 mas corresponds to {} pc of de-projected distance".format(mas_to_pc(l_mas, z, theta_obs)))
-    print("1 mas corresponds to {} pc of de-projected distance".format(l_mas*u.mas.to(u.rad)*D/np.sin(theta_obs)))
+    # print("1 mas corresponds to {} pc of de-projected distance".format(mas_to_pc(l_mas, z, theta_obs)))
+    # print("1 mas corresponds to {} pc of de-projected distance".format(l_mas*u.mas.to(u.rad)*D/np.sin(theta_obs)))
 
     # Value of Rg for M87 in mas
     Rg_in_mas = (get_R_g(6.5e+09*M_sun)*u.cm/(16.8e+06*u.pc)).to(u.dimensionless_unscaled).value*rad_to_mas
@@ -213,8 +285,8 @@ if __name__ == "__main__":
     beta_app_err = np.array([0.48, 0.21, 0.58, 1.05])
     beta_app_mean = np.mean(beta_app)
     beta_app_mean_err = np.sqrt(np.sum(beta_app_err**2))/len(beta_app_err)
-    theta_deg = 17.
-    theta_deg_err = 2.
+    theta_deg = 17.2
+    theta_deg_err = 3.3
     N = int(1e5)
     gamma_in = 1.1
     betas_app = np.random.normal(beta_app_mean, beta_app_mean_err, N)
@@ -228,11 +300,20 @@ if __name__ == "__main__":
     low32_sigmas, med32_sigmas, up32_sigmas = scoreatpercentile(sigmas_sample.compressed(), [16, 50, 84])
 
     # Our work
-    r1_obs_mas = 2.5
-    r1_obs_sigma_mas = 0.5
+    r1_obs_mas = np.median(width_samples)
+    # sigma_mad = 1.4826*mad
+
+    r1_obs_sigma_mas = mad_std(width_samples)
+
+    print(r1_obs_mas, r1_obs_sigma_mas)
+    # sys.exit(0)
+
     # Hada+2016
+    # This is p2p:
     # r1_obs_mas = 0.55
     # r1_obs_sigma_mas = 0.2*r1_obs_mas
+
+
     r1_obs_mas_sample = np.random.normal(r1_obs_mas, r1_obs_sigma_mas, N)
     # g
     M_BH = 6.5e+09*M_sun
@@ -249,37 +330,63 @@ if __name__ == "__main__":
     low5, med, up5 = scoreatpercentile(r1_to_Rg_sample, [2.5, 50, 97.5])
     low32, med, up32 = scoreatpercentile(r1_to_Rg_sample, [16, 50, 84])
 
-    from labellines import labelLines
+    # from labellines import labelLines
     import matplotlib.ticker as ticker
     sigmas = np.logspace(0, 2.4, 1000)
-    fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8))
-    axes.set_xlim([1., 10**2.4])
+    fig, axes = plt.subplots(1, 1, figsize=(6.4, 4.8), layout="constrained")
+
+    # axes.set_xlim([1., 10**2.4])
+    axes.set_xlim([2., 10**2.])
+    # axes.set_ylim([0.01, 1.])
+
+    # axes2 = axes.twinx()
+    # axes2.set_ylabel(r"$R_{\rm L}$, pc")
+
+
     # labels = (r"100$r_{\rm g}$", r"Hada+2016", r"300$r_{\rm g}$", r"This work", r"1000$r_{\rm g}$")
     # labels = (r"100$r_{\rm g}$", r"300$r_{\rm g}$", r"1000$r_{\rm g}$")
     # for i, r1_to_rg in enumerate((100, 157, 300, 654, 1000)):
     # for i, r1_to_rg in enumerate((100, 300, 1000)):
-    a_up5 = get_a_from_r1(low5, gamma_in, sigmas)
-    a_low5 = get_a_from_r1(up5, gamma_in, sigmas)
-    a_up32 = get_a_from_r1(low32, gamma_in, sigmas)
-    a_low32 = get_a_from_r1(up32, gamma_in, sigmas)
-    axes.fill_between(sigmas, a_low5, a_up5, color="C0", alpha=0.25, label=r"$r_1$ this work")
-    axes.fill_between(sigmas, a_low32, a_up32, color="C0", alpha=0.25)
+
+
+
+    # a_up5 = get_a_from_r1(low5, gamma_in, sigmas)
+    # a_low5 = get_a_from_r1(up5, gamma_in, sigmas)
+    # a_up32 = get_a_from_r1(low32, gamma_in, sigmas)
+    # a_low32 = get_a_from_r1(up32, gamma_in, sigmas)
+    # axes.fill_between(sigmas, a_low5, a_up5, color="C0", alpha=0.25, label=r"$r_{\rm cr}$ this work")
+    # axes.fill_between(sigmas, a_low32, a_up32, color="C0", alpha=0.25)
+
+
+
+    R_L_up5 = get_R_L_in_r_g_units_from_r1(up5, gamma_in, sigmas)
+    R_L_low5 = get_R_L_in_r_g_units_from_r1(low5, gamma_in, sigmas)
+    R_L_up32 = get_R_L_in_r_g_units_from_r1(up32, gamma_in, sigmas)
+    R_L_low32 = get_R_L_in_r_g_units_from_r1(low32, gamma_in, sigmas)
+    axes.fill_between(sigmas, R_L_low5, R_L_up5, color="C0", alpha=0.25, label=r"$r_{\rm cr}$ this work")
+    axes.fill_between(sigmas, R_L_low32, R_L_up32, color="C0", alpha=0.25)
+
+
     # axes.plot(sigmas, a, label=r"{}".format(labels[i]), lw=3)
     # labelLines(axes.get_lines(), zorder=2.5, fontsize=14, backgroundcolor="none")
     axes.set_xlabel(r"$\sigma_{\rm M}$")
-    axes.set_ylabel(r"$a$")
+    # axes.set_ylabel(r"$a$")
+    axes.set_ylabel(r"$R_{\rm L}/r_{\rm g}$")
     axes.set_xscale("log", base=10)
     axes.set_yscale("log", base=10)
-    axes.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
+    axes.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.0f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
     axes.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
-    plt.legend(loc="upper left")
-    fig.savefig("r1_HST-1_constrains_science.pdf", bbox_inches="tight", dpi=300)
+    # axes.set_yticks([0.01, 0.03, 0.1, 0.3])
+    # plt.legend(loc="upper left")
+    # leg1 = axes.legend(loc="lower left", prop={"size": 14})
+
+    # fig.savefig(os.path.join(save_dir, "r1_HST-1_constrains_science_radius.pdf"), bbox_inches="tight", dpi=300)
 
 
 
 
     # Hada+2016
-    r1_obs_mas = 0.55
+    r1_obs_mas = 0.55/2.
     r1_obs_sigma_mas = 0.2*r1_obs_mas
     r1_obs_mas_sample = np.random.normal(r1_obs_mas, r1_obs_sigma_mas, N)
     # g
@@ -297,20 +404,66 @@ if __name__ == "__main__":
     low5, med, up5 = scoreatpercentile(r1_to_Rg_sample, [2.5, 50, 97.5])
     low32, med, up32 = scoreatpercentile(r1_to_Rg_sample, [16, 50, 84])
 
-    a_up5 = get_a_from_r1(low5, gamma_in, sigmas)
-    a_low5 = get_a_from_r1(up5, gamma_in, sigmas)
-    a_up32 = get_a_from_r1(low32, gamma_in, sigmas)
-    a_low32 = get_a_from_r1(up32, gamma_in, sigmas)
-    axes.fill_between(sigmas, a_low5, a_up5, color="C2", alpha=0.25, label=r"$r_1$ Hada+2016")
-    axes.fill_between(sigmas, a_low32, a_up32, color="C2", alpha=0.25)
+    # a_up5 = get_a_from_r1(low5, gamma_in, sigmas)
+    # a_low5 = get_a_from_r1(up5, gamma_in, sigmas)
+    # a_up32 = get_a_from_r1(low32, gamma_in, sigmas)
+    # a_low32 = get_a_from_r1(up32, gamma_in, sigmas)
+    # axes.fill_between(sigmas, a_low5, a_up5, color="C2", alpha=0.25, label=r"$r_{\rm cr}$ Hada+2016")
+    # axes.fill_between(sigmas, a_low32, a_up32, color="C2", alpha=0.25)
+
+
+    R_L_up5 = get_R_L_in_r_g_units_from_r1(up5, gamma_in, sigmas)
+    R_L_low5 = get_R_L_in_r_g_units_from_r1(low5, gamma_in, sigmas)
+    R_L_up32 = get_R_L_in_r_g_units_from_r1(up32, gamma_in, sigmas)
+    R_L_low32 = get_R_L_in_r_g_units_from_r1(low32, gamma_in, sigmas)
+    axes.fill_between(sigmas, R_L_low5, R_L_up5, color="C2", alpha=0.25, label=r"$r_{\rm cr}$ Hada+2016")
+    axes.fill_between(sigmas, R_L_low32, R_L_up32, color="C2", alpha=0.25)
+
+
+    # axes2 = axes.twinx()
+    # axes2.set_yscale("log", base=10)
+    # axes2.fill_between(sigmas, R_L_low5, R_L_up5, color="C2", alpha=0.25, label=r"$r_{\rm cr}$ Hada+2016")
+    # axes2.fill_between(sigmas, R_L_low32, R_L_up32, color="C2", alpha=0.25)
+
+
+
+
+
     axes.axvspan(low5_sigmas, up5_sigmas, color="C1", alpha=0.25, label="HST-1 speeds")
     axes.axvspan(low32_sigmas, up32_sigmas, color="C1", alpha=0.25)
-    plt.legend(loc="upper left", prop={"size":12})
-    fig.savefig("r1_HST-1_constrains_both_science.pdf", bbox_inches="tight", dpi=300)
+    # plt.legend(loc="upper left", prop={"size":12})
+    leg = axes.legend(loc="lower left", prop={"size": 14}, handlelength=1.5)
+
+    for patch in leg.get_patches():
+        patch.set_width(20.0)
+
+
+
+
+
+
+    from matplotlib.ticker import AutoMinorLocator
+    axes.yaxis.set_ticks_position("left")
+    secax = axes.secondary_yaxis('right', functions=(R_L_to_a, a_to_R_L))
+    secax.yaxis.set_ticks_position("right")
+    # secax.set_ylabel(r'$R_{\rm L}$ ($r_{\rm g}$)')
+    secax.set_ylabel(r"$a$")
+    #
+    from matplotlib.ticker import LogLocator, LogFormatterMathtext
+    secax.yaxis.set_major_locator(LogLocator())
+    secax.yaxis.set_major_formatter(LogFormatterMathtext())
+
+    secax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.2f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
+
+    # secax.set_yscale("log", base=10)
+    # secax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
+    # secax.set_yticks([10, 30, 100, 300])
+
+    fig.savefig(os.path.join(save_dir, "r1_HST-1_constrains_both_science_radius_R_L_a_reverse.pdf"), bbox_inches="tight", dpi=300)
 
     plt.show()
 
-    # sys.exit(0)
+    sys.exit(0)
 
 
     from labellines import labelLines
@@ -333,5 +486,5 @@ if __name__ == "__main__":
     axes.set_yscale("log", base=10)
     axes.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
     axes.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y,pos: ('{{:.{:1d}f}}'.format(int(np.maximum(-np.log10(y),0)))).format(y)))
-    fig.savefig("r1_constrain_analytical_science.pdf", bbox_inches="tight", dpi=300)
+    fig.savefig(os.path.join(save_dir, "r1_constrain_analytical_science.pdf"), bbox_inches="tight", dpi=300)
     plt.show()
